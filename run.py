@@ -351,6 +351,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
 
         scores = score(rules, lowers_true=lowers_true, uppers_true=uppers_true)
 
+        # Perform the compaction.
         min_exp = 100
         mlflow.log_param("min_exp", min_exp)
 
@@ -362,12 +363,6 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                         lowers_true=lowers_true,
                         uppers_true=uppers_true)
 
-        log_arrays("results",
-                   y_test_pred=y_test_pred,
-                   y_pred=y_pred,
-                   scores=scores,
-                   scores2=scores2)
-
         fig, ax = plt.subplots(2, layout="constrained")
         ax[0].hist(scores, bins=50)
         ax[1].hist(scores2, bins=50)
@@ -375,30 +370,56 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
 
         _, DX = X_test.shape
 
-        if DX == 1:
-            plt.scatter(X_test, y_test, color="C0", marker="+")
-            plt.plot(X_test, y_test_pred, color="C1")
-            log_plot("pred", fig)
-
+        # Recompute metrics.
+        #
         # Scores of the ground truth are expected to be 1.
         sim_true = similarities_(lowers_true, uppers_true, lowers_true,
                                  uppers_true)
         sim_true[sim_true == None] = 0.0
         assert np.all(np.max(sim_true, axis=0) == 1.0)
 
+        random_state = check_random_state(seed)
+        xcs2 = model._init_xcs(X)
+        pop2 = { "classifiers" : rules2 }
+        with open("pop2.json", "w") as outfile:
+            json.dump(pop2, outfile)
+        xcs2.json_read("pop2.json")
+        y_test_pred2 = xcs2.predict(X_test)
+        y_pred2 = xcs2.predict(X)
+
+        log_arrays("results",
+                   y_pred=y_pred,
+                   y_test_pred=y_test_pred,
+                   y_pred2=y_pred2,
+                   y_test_pred2=y_test_pred2,
+                   scores=scores,
+                   scores2=scores2)
+
+        mse_test2 = mean_squared_error(y_test_pred2, y_test)
+        print("MSE test (modified):", mse_test2)
+        mse_train2 = mean_squared_error(y_pred2, y)
+        print("MSE train (modified):", mse_train2)
+        mlflow.log_metrics({"mse2.test": mse_test2, "mse2.train": mse_train2})
+
+        if DX == 1:
+            plt.scatter(X_test, y_test, color="C0", marker="+")
+            plt.plot(X_test, y_test_pred, color="C1")
+            plt.plot(X_test, y_test_pred2, color="C2")
+            log_plot("pred", fig)
+
+
         # 1d
 
         # 5d
 
+
+        import IPython; IPython.embed(banner1=""); import sys; sys.exit(1)
+        # consider running `globals().update(locals())` in the shell to fix not being
+        # able to put scopes around variables
+
+
         # TODO Initialize xcs2 properly so that we can make predictions (extract
         # init from sklearn_xcsf)
-        # pop2 = { "classifiers" : rules2 }
-        # with open("pop2.json", "w") as outfile:
-        #     json.dump(pop2, outfile)
-        # xcs2 = xcsf.XCS(X.shape[1], 1, 1)
-        # xcs2.json_read("pop2.json")
-        # model.xcs_.json_read("pop2.json")
-        # y_test_pred2 = model.predict(X_test)
 
 
 if __name__ == "__main__":

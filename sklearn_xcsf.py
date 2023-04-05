@@ -117,12 +117,7 @@ class XCSF(BaseEstimator, RegressorMixin):
         self.ea_select_type = ea_select_type
         self.compaction = compaction
 
-    def fit(self, X, y):
-        X, y = check_X_y(X, y)
-        # This is required so that XCS does not (silently!?) segfault (see
-        # https://github.com/rpreen/xcsf/issues/17 ).
-        y = y.reshape((len(X), -1))
-
+    def _init_xcs(self, X):
         random_state = check_random_state(self.random_state)
 
         xcs = xcsf.XCS(X.shape[1], 1, 1)  # only 1 (dummy) action
@@ -160,6 +155,16 @@ class XCSF(BaseEstimator, RegressorMixin):
         }
         prediction_string = "rls_linear"
         xcs.prediction(prediction_string, args)
+
+        return xcs
+
+    def fit(self, X, y):
+        X, y = check_X_y(X, y)
+        # This is required so that XCS does not (silently!?) segfault (see
+        # https://github.com/rpreen/xcsf/issues/17 ).
+        y = y.reshape((len(X), -1))
+
+        xcs = self._init_xcs(X)
 
         xcs.fit(X, y, True)
 
