@@ -2,42 +2,11 @@
 # https://github.com/heidmic/suprb-experimentation/blob/xcsf_experiment/runs/examples/xcsf_final.py
 # which was originally based on
 # https://github.com/berbl-dev/berbl-exp/blob/main/src/experiments/xcsf.py .
-import mlflow
 import numpy as np
-from optuna import Trial
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.utils import Bunch
-from skopt.space import Integer, Real
-
-from experiments import Experiment
-from experiments.evaluation import CrossValidate
-from experiments.mlflow import log_experiment
-from experiments.parameter_search import param_space
-from experiments.parameter_search.optuna import OptunaTuner
-from experiments.parameter_search.skopt import SkoptTuner
-from problems import scale_X_y
-from problems.datasets import load_airfoil_self_noise
 import xcsf
-from sklearn.utils import Bunch, shuffle
-import click
-import optuna
 from sklearn.base import BaseEstimator, RegressorMixin  # type: ignore
-from sklearn.model_selection import ShuffleSplit
 from sklearn.utils import check_random_state  # type: ignore
-from sklearn.utils.validation import check_is_fitted, check_X_y, check_array
-from sklearn.metrics import mean_squared_error
-# type: ignore
-from sklearn.model_selection import cross_validate
-
-random_state = 42
-
-
-def load_dataset(name: str, **kwargs) -> tuple[np.ndarray, np.ndarray]:
-    method_name = f"load_{name}"
-    from problems import datasets
-    if hasattr(datasets, method_name):
-        return getattr(datasets, method_name)(**kwargs)
+from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 
 def set_xcs_params(xcs, params):
@@ -123,26 +92,30 @@ class XCSF(BaseEstimator, RegressorMixin):
     be pickled and some parameters are missing
     """
 
-    def __init__(self,
-                 random_state,
-                 MAX_TRIALS=1000,
-                 POP_SIZE=200,
-                 NU=5,
-                 P_CROSSOVER=0.8,
-                 P_EXPLORE=0.9,
-                 THETA_EA=50,
-                 EA_SUBSUMPTION=False,
-                 EA_SELECT_TYPE="tournament"):
+    def __init__(
+            self,
+            random_state,
+            n_iter=1000,
+            n_pop_size=200,
+            # TODO expose other important ones here as well (epsilon0 etc.)
+            nu=5,
+            p_crossover=0.8,
+            p_explore=0.9,
+            theta_ea=50,
+            ea_subsumption=False,
+            ea_select_type="tournament",
+            compaction=False):
         self.random_state = random_state
 
-        self.MAX_TRIALS = MAX_TRIALS
-        self.POP_SIZE = POP_SIZE
-        self.NU = NU
-        self.P_CROSSOVER = P_CROSSOVER
-        self.P_EXPLORE = P_EXPLORE
-        self.THETA_EA = THETA_EA
-        self.EA_SUBSUMPTION = EA_SUBSUMPTION
-        self.EA_SELECT_TYPE = EA_SELECT_TYPE
+        self.n_iter = n_iter
+        self.n_pop_size = n_pop_size
+        self.nu = nu
+        self.p_crossover = p_crossover
+        self.p_explore = p_explore
+        self.theta_ea = theta_ea
+        self.ea_subsumption = ea_subsumption
+        self.ea_select_type = ea_select_type
+        self.compaction = compaction
 
     def fit(self, X, y):
         X, y = check_X_y(X, y)
@@ -155,31 +128,30 @@ class XCSF(BaseEstimator, RegressorMixin):
         xcs = xcsf.XCS(X.shape[1], 1, 1)  # only 1 (dummy) action
         xcs.seed(random_state.randint(np.iinfo(np.int32).max))
 
-        params = default_xcs_params()
-        configurables = {
-            "MAX_TRIALS": self.MAX_TRIALS,
-            "POP_SIZE": self.POP_SIZE,
-            "NU": self.NU,
-            "P_CROSSOVER": self.P_CROSSOVER,
-            "P_EXPLORE": self.P_EXPLORE,
-            "THETA_EA": self.THETA_EA,
-            "EA_SUBSUMPTION": self.EA_SUBSUMPTION,
-            "EA_SELECT_TYPE": self.EA_SELECT_TYPE
+        params = default_xcs_params() | {
+            "MAX_TRIALS": self.n_iter,
+            "POP_SIZE": self.n_pop_size,
+            "NU": self.nu,
+            "P_CROSSOVER": self.p_crossover,
+            "P_EXPLORE": self.p_explore,
+            "THETA_EA": self.theta_ea,
+            "EA_SUBSUMPTION": self.ea_subsumption,
+            "EA_SELECT_TYPE": self.ea_select_type,
+            "COMPACTION": self.compaction
         }
-        params.update(configurables)
         set_xcs_params(xcs, params)
-        print(f"fitting with {configurables}")
 
         xcs.action("integer")  # (dummy) integer actions
 
+        wiggle_room = 0.05
         args = {
-            "min": -1,  # minimum value of a lower bound
-            "max": 1,  # maximum value of an upper bound
+            "min": -1.0 - wiggle_room,  # minimum value of a lower bound
+            "max": 1.0 + wiggle_room,  # maximum value of an upper bound
             "spread_min": 0.1,  # minimum initial spread
             "eta":
             0,  # disable gradient descent of centers towards matched input mean
         }
-        xcs.condition("hyperrectangle", args)
+        xcs.condition("hyperrectangle_csr", args)
 
         args = {
             "x0": 1,  # bias attribute
@@ -199,106 +171,6 @@ class XCSF(BaseEstimator, RegressorMixin):
         check_is_fitted(self)
 
         X = check_array(X)
-        self.xcs_.print_pset(True, True, True)
+        # self.xcs_.print_pset(True, True, True)
 
         return self.xcs_.predict(X)
-
-    # def population(self):
-    #     check_is_fitted(self)
-    #
-    #     out = io.BytesIO()
-    #     with utils.stdout_redirector(out):
-    #         self.xcs_.print_pset(True, True, True)
-    #
-    #     pop = out.getvalue().decode("utf-8")
-    #     return pop
-
-
-@click.command()
-@click.option('-p',
-              '--problem',
-              type=click.STRING,
-              default='airfoil_self_noise')
-@click.option('-j', '--job_id', type=click.STRING, default='NA')
-def run(problem: str, job_id: str):
-    random_state = 42
-    print(f"Problem is {problem} with JobId {job_id}")
-
-    X, y = load_dataset(name=problem, return_X_y=True)
-    X, y = scale_X_y(X, y)
-    X, y = shuffle(X, y, random_state=random_state)
-
-    params = {}
-
-    if problem == 'concrete_strength':
-        params = {
-            'MAX_TRIALS': 121346,
-            'POP_SIZE': 622,
-            'P_CROSSOVER': 0.8772756806442054,
-            'P_EXPLORE': 0.8313044409261099,
-            'NU': 3,
-            'THETA_EA': 39,
-            'EA_SUBSUMPTION': True,
-            'EA_SELECT_TYPE': 'roulette'
-        }
-    elif problem == 'combined_cycle_power_plant':
-        params = {
-            'MAX_TRIALS': 472201,
-            'POP_SIZE': 2495,
-            'P_CROSSOVER': 0.5405489782155791,
-            'P_EXPLORE': 0.8673932144700683,
-            'NU': 5,
-            'THETA_EA': 50,
-            'EA_SUBSUMPTION': True,
-            'EA_SELECT_TYPE': 'tournament'
-        }
-    elif problem == 'airfoil_self_noise':
-        params = {
-            'MAX_TRIALS': 374418,
-            'POP_SIZE': 1044,
-            'P_CROSSOVER': 0.9349035679222683,
-            'P_EXPLORE': 0.658032571723789,
-            'NU': 1,
-            'THETA_EA': 41,
-            'EA_SUBSUMPTION': False,
-            'EA_SELECT_TYPE': 'tournament'
-        }
-    elif problem == 'energy_cool':
-        params = {
-            'MAX_TRIALS': 373259,
-            'POP_SIZE': 1136,
-            'P_CROSSOVER': 0.7503158535428448,
-            'P_EXPLORE': 0.783389757163828,
-            'NU': 1,
-            'THETA_EA': 29,
-            'EA_SUBSUMPTION': False,
-            'EA_SELECT_TYPE': 'tournament'
-        }
-
-    estimator = XCSF(random_state, **params)
-
-    # Create the base experiment, using some default tuner
-    experiment = Experiment(name='XCSF_eval', verbose=0)
-
-    random_states = np.random.SeedSequence(random_state).generate_state(8)
-    experiment.with_random_states(random_states, n_jobs=4)
-
-    # Evaluation using cross-validation and an external test set
-    evaluation = CrossValidate(estimator=estimator,
-                               X=X,
-                               y=y,
-                               random_state=random_state,
-                               verbose=0)
-
-    experiment.perform(evaluation,
-                       cv=ShuffleSplit(n_splits=8,
-                                       test_size=0.25,
-                                       random_state=random_state),
-                       n_jobs=8)
-
-    mlflow.set_experiment(f"XCSF_eval_{problem}")
-    log_experiment(experiment)
-
-
-if __name__ == '__main__':
-    run()
