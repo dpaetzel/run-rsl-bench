@@ -250,46 +250,30 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         data = np.load(npzfile)
         mlflow.log_param("data.fname", npzfile)
 
+        # Load train data.
         X, y = get_train(data)
-
-        N, DX = X.shape
-        mlflow.log_param("data.N", N)
-        mlflow.log_param("data.DX", DX)
-
         scaler_X = MinMaxScaler(feature_range=(-1, 1))
         X = scaler_X.fit_transform(X).reshape(X.shape)
         scaler_y = StandardScaler()
         y = scaler_y.fit_transform(y)
 
+        N, DX = X.shape
         mlflow.log_params({
+            "data.N": N,
+            "data.DX": DX,
             "pop_size": pop_size,
             "n_iter": n_iter,
             "compact": compact,
         })
 
-        model = XCSF(n_pop_size=pop_size,
-                     n_iter=n_iter,
-                     compaction=compact,
-                     random_state=random_state)
-        model.fit(X, y)
-
+        # Load test data.
         X_test, y_test = get_test(data)
-
         X_test = scaler_X.transform(X_test)
         y_test = scaler_y.transform(y_test)
-
+        # Sort test data for more straightforward prediction plotting.
         perm = np.argsort(X_test.ravel())
         X_test = X_test[perm]
         y_test = y_test[perm]
-
-        y_test_pred = model.predict(X_test)
-        y_pred = model.predict(X)
-
-        mse_test = mean_squared_error(y_test_pred, y_test)
-        print("MSE test:", mse_test)
-        mse_train = mean_squared_error(y_pred, y)
-        print("MSE train:", mse_train)
-        mlflow.log_metrics({"mse.test": mse_test, "mse.train": mse_train})
 
         # Load ground truth.
         centers_true = data["centers"]
@@ -314,72 +298,75 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
             data["rsl_model_rsquared"],
         })
 
-        # Score solution relative to ground truth.
-        lowers, uppers = bounds(model.rules_)
-        scores = score(lowers=lowers,
-                       uppers=uppers,
-                       lowers_true=lowers_true,
-                       uppers_true=uppers_true)
+        def eval_model(model, label):
+            model.fit(X, y)
 
-        # Perform the compaction.
-        min_exp = 100
-        mlflow.log_param("min_exp", min_exp)
+            y_test_pred = model.predict(X_test)
+            y_pred = model.predict(X)
 
-        rules = model.rules_
-        idxs_exp = np.where(
-            list(map(lambda r: r["experience"] > min_exp, rules)))
-        rules2 = list(np.array(rules)[idxs_exp])
+            mse_test = mean_squared_error(y_test_pred, y_test)
+            print(f"MSE test ({label}):", mse_test)
+            mse_train = mean_squared_error(y_pred, y)
+            print(f"MSE train ({label}):", mse_train)
+            mlflow.log_metrics({
+                f"mse.test.{label}": mse_test,
+                f"mse.train.{label}": mse_train
+            })
 
-        lowers2, uppers2 = bounds(rules2)
-        scores2 = score(lowers=lowers2,
-                        uppers=uppers2,
-                        lowers_true=lowers_true,
-                        uppers_true=uppers_true)
+            # Score solution relative to ground truth.
+            lowers, uppers = bounds(model.rules_)
+            scores = score(lowers=lowers,
+                           uppers=uppers,
+                           lowers_true=lowers_true,
+                           uppers_true=uppers_true)
 
-        fig, ax = plt.subplots(2, layout="constrained")
-        ax[0].hist(scores, bins=50)
-        ax[1].hist(scores2, bins=50)
-        log_plot("hist-scores", fig)
+            log_arrays(f"results.{label}",
+                       y_pred=y_pred,
+                       y_test_pred=y_test_pred,
+                       scores=scores)
 
-        _, DX = X_test.shape
+            return y_pred, y_test_pred, scores
 
-        # Recompute metrics.
-        #
-        # Scores of the ground truth are expected to be 1.
-        sim_true = similarities(lowers_true, uppers_true, lowers_true,
-                                 uppers_true)
-        sim_true[sim_true == None] = 0.0
-        assert np.all(np.max(sim_true, axis=0) == 1.0)
-
-        random_state = check_random_state(seed)
-        xcs2 = model._init_xcs(X)
-        pop2 = {"classifiers": rules2}
-        with open("pop2.json", "w") as outfile:
-            json.dump(pop2, outfile)
-        xcs2.json_read("pop2.json")
-        y_test_pred2 = xcs2.predict(X_test)
-        y_pred2 = xcs2.predict(X)
-
-        log_arrays("results",
-                   y_pred=y_pred,
-                   y_test_pred=y_test_pred,
-                   y_pred2=y_pred2,
-                   y_test_pred2=y_test_pred2,
-                   scores=scores,
-                   scores2=scores2)
-
-        mse_test2 = mean_squared_error(y_test_pred2, y_test)
-        print("MSE test (modified):", mse_test2)
-        mse_train2 = mean_squared_error(y_pred2, y)
-        print("MSE train (modified):", mse_train2)
-        mlflow.log_metrics({"mse2.test": mse_test2, "mse2.train": mse_train2})
+        model_ubr = XCSF(n_pop_size=pop_size,
+                         n_iter=n_iter,
+                         compaction=compact,
+                         random_state=random_state,
+                         condition="hyperrectangle_ubr",
+                         ea_subsumption=True)
+        model_csr = XCSF(n_pop_size=pop_size,
+                         n_iter=n_iter,
+                         compaction=compact,
+                         random_state=random_state,
+                         condition="hyperrectangle_ubr",
+                         ea_subsumption=True)
+        y_pred_ubr, y_test_pred_ubr, scores_ubr = eval_model(model_ubr, "ubr")
+        y_pred_csr, y_test_pred_csr, scores_csr = eval_model(model_csr, "csr")
 
         if DX == 1:
-            fig, ax = plt.subplots(1, layout="constrained")
-            ax.scatter(X_test, y_test, color="C0", marker="+")
-            ax.plot(X_test, y_test_pred, color="C1")
-            ax.plot(X_test, y_test_pred2, color="C2")
-            log_plot("pred", fig)
+            fig, ax = plt.subplots(2, layout="constrained")
+            ax[0].scatter(X_test, y_test, color="C0", marker="+")
+            ax[0].plot(X_test, y_test_pred_ubr, color="C1")
+            ax[0].set_title("ubr")
+            ax[1].scatter(X_test, y_test, color="C0", marker="+")
+            ax[1].plot(X_test, y_test_pred_csr, color="C1")
+            ax[1].set_title("csr")
+            log_plot(f"preds", fig)
+
+        fig, ax = plt.subplots(1, layout="constrained")
+        ax.hist(scores_ubr,
+                bins=50,
+                density=True,
+                histtype="step",
+                label="ubr",
+                cumulative=True)
+        ax.hist(scores_csr,
+                bins=50,
+                density=True,
+                histtype="step",
+                label="csr",
+                cumulative=True)
+        ax.legend()
+        log_plot("hist-scores", fig)
 
         # 1d
 
