@@ -106,7 +106,8 @@ class XCSF(BaseEstimator, RegressorMixin):
             theta_ea=50,
             ea_subsumption=False,
             ea_select_type="tournament",
-            compaction=False):
+            compaction=False,
+            condition="hyperrectangle_csr"):
         self.random_state = random_state
 
         self.n_iter = n_iter
@@ -118,6 +119,7 @@ class XCSF(BaseEstimator, RegressorMixin):
         self.ea_subsumption = ea_subsumption
         self.ea_select_type = ea_select_type
         self.compaction = compaction
+        self.condition = condition
 
     def _init_xcs(self, X):
         random_state = check_random_state(self.random_state)
@@ -148,7 +150,7 @@ class XCSF(BaseEstimator, RegressorMixin):
             "eta":
             0,  # disable gradient descent of centers towards matched input mean
         }
-        xcs.condition("hyperrectangle_csr", args)
+        xcs.condition(self.condition, args)
 
         args = {
             "x0": 1,  # bias attribute
