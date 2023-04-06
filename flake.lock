@@ -15,6 +15,23 @@
         "type": "github"
       }
     },
+    "cmpbayes": {
+      "inputs": {
+        "nixos-config": [
+          "nixos-config"
+        ]
+      },
+      "locked": {
+        "lastModified": 1680772309,
+        "narHash": "sha256-xK2AM5OqjMb70Ieix7zhldjUZmEN5o24eEy0CHa9RjQ=",
+        "path": "/home/david/Code/cmpbayes",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/david/Code/cmpbayes",
+        "type": "path"
+      }
+    },
     "ema": {
       "flake": false,
       "locked": {
@@ -335,6 +352,7 @@
     },
     "root": {
       "inputs": {
+        "cmpbayes": "cmpbayes",
         "nixos-config": "nixos-config"
       }
     },

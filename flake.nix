@@ -3,9 +3,15 @@
     # I typically use the exact nixpkgs set that I use for building my current
     # system to avoid redundancy.
     nixos-config.url = "github:dpaetzel/nixos-config";
+
+    cmpbayes = {
+      type = "path";
+      inputs.nixos-config.follows = "nixos-config";
+      path = "/home/david/Code/cmpbayes";
+    };
   };
 
-  outputs = { self, nixos-config }:
+  outputs = { self, nixos-config, cmpbayes }:
     let
       nixpkgs = nixos-config.inputs.nixpkgs;
       system = "x86_64-linux";
@@ -21,7 +27,7 @@
         format = "pyproject";
 
         propagatedBuildInputs = with python.pkgs; [
-          # TODO Adjust these
+          cmpbayes.defaultPackage."${system}"
           click
           matplotlib
           mlflow
@@ -52,11 +58,12 @@
           export LD_LIBRARY_PATH="${
             pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc ]
           }:$LD_LIBRARY_PATH";
+          pip install xcsf pystan==3.4.0
         '';
 
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
-          pip install xcsf
+          pip install xcsf pystan==3.4.0
         '';
 
       };
