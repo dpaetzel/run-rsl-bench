@@ -2,6 +2,8 @@
 # https://github.com/heidmic/suprb-experimentation/blob/xcsf_experiment/runs/examples/xcsf_final.py
 # which was originally based on
 # https://github.com/berbl-dev/berbl-exp/blob/main/src/experiments/xcsf.py .
+import json
+
 import numpy as np
 import xcsf
 from sklearn.base import BaseEstimator, RegressorMixin  # type: ignore
@@ -179,3 +181,16 @@ class XCSF(BaseEstimator, RegressorMixin):
         # self.xcs_.print_pset(True, True, True)
 
         return self.xcs_.predict(X)
+
+    @property
+    def rules_(self):
+        check_is_fitted(self)
+
+        return_condition = True
+        return_action = True
+        return_prediction = True
+        json_string = self.xcs_.json(return_condition, return_action,
+                                     return_prediction)
+        pop = json.loads(json_string)
+        rules = pop["classifiers"]
+        return rules
