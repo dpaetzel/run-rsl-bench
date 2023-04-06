@@ -86,11 +86,18 @@ def volume(l, u):
 
 def subsethood(l1, u1, l2, u2):
     intersect = intersection(l1=l1, u1=u1, l2=l2, u2=u2)
+    # If not intersecting, subsethood is 0.
     if intersect is None:
-        return None
+        return 0.0
+    # If intersecting …
     else:
-        l, u = intersect
-        return volume(l, u) / volume(l1, u1)
+        # … and the first interval is degenerate that interval is still fully
+        # contained in the second and subsethood is 1.0.
+        if volume(l1, u1) == 0:
+            return 1.0
+        else:
+            l, u = intersect
+            return volume(l, u) / volume(l1, u1)
 
 
 def interval_similarity_mean(l1, u1, l2, u2):
@@ -99,18 +106,15 @@ def interval_similarity_mean(l1, u1, l2, u2):
     """
     ssh1 = subsethood(l1=l1, u1=u1, l2=l2, u2=u2)
     ssh2 = subsethood(l1=l2, u1=u2, l2=l1, u2=u1)
-    if ssh1 is None or ssh2 is None:
-        return None
-    else:
-        return (ssh1 + ssh2) / 2.0
+    return (ssh1 + ssh2) / 2.0
 
 
 def similarities(lowers, uppers, lowers_true, uppers_true):
     K_true = len(lowers_true)
     K = len(lowers)
 
-    vols_overlap = np.full((K_true, K), None)
-    similarity = np.full((K_true, K), None)
+    vols_overlap = np.full((K_true, K), -1.0, dtype=float)
+    similarity = np.full((K_true, K), -1.0, dtype=float)
     for i in range(K):
         for j in range(K_true):
             lu = intersection(l1=lowers[i],
@@ -138,11 +142,12 @@ def score(lowers, uppers, lowers_true, uppers_true):
                               lowers_true=lowers_true,
                               uppers_true=uppers_true)
 
-    similarity[similarity == None] = 0.0
+    similarity[similarity == -1.0] = 0.0
 
     # The score of a solution rule is the highest similarity score value it
     # received.
     scores = np.max(similarity, axis=0)
+
     return scores
 
 
