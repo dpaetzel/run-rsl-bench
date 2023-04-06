@@ -105,6 +105,7 @@ class XCSF(BaseEstimator, RegressorMixin):
             p_explore=0.9,
             theta_ea=50,
             ea_subsumption=False,
+            theta_sub=50,
             ea_select_type="tournament",
             compaction=False,
             condition="hyperrectangle_csr"):
@@ -117,6 +118,7 @@ class XCSF(BaseEstimator, RegressorMixin):
         self.p_explore = p_explore
         self.theta_ea = theta_ea
         self.ea_subsumption = ea_subsumption
+        self.theta_sub = theta_sub
         self.ea_select_type = ea_select_type
         self.compaction = compaction
         self.condition = condition
@@ -135,6 +137,7 @@ class XCSF(BaseEstimator, RegressorMixin):
             "P_EXPLORE": self.p_explore,
             "THETA_EA": self.theta_ea,
             "EA_SUBSUMPTION": self.ea_subsumption,
+            "THETA_SUB": self.theta_sub,
             "EA_SELECT_TYPE": self.ea_select_type,
             "COMPACTION": self.compaction
         }
