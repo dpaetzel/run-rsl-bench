@@ -1,6 +1,6 @@
+import json
 import os
 
-import json
 import matplotlib.pyplot as plt
 import tempfile
 from sklearn.metrics import mean_squared_error
@@ -12,7 +12,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.utils import check_random_state
 
-from sklearn_xcsf import XCSF
+from sklearn_xcsf import XCSF, bounds
 
 
 def get_train(data):
@@ -105,24 +105,7 @@ def interval_similarity_mean(l1, u1, l2, u2):
         return (ssh1 + ssh2) / 2.0
 
 
-def similarities(rules, lowers_true, uppers_true):
-    lowers = []
-    uppers = []
-    for rule in rules:
-        center = np.array(rule["condition"]["center"])
-        spread = np.array(rule["condition"]["spread"])
-        lower = center - spread
-        upper = center + spread
-        lowers.append(lower)
-        uppers.append(upper)
-
-    return similarities_(lowers=lowers,
-                         uppers=uppers,
-                         lowers_true=lowers_true,
-                         uppers_true=uppers_true)
-
-
-def similarities_(lowers, uppers, lowers_true, uppers_true):
+def similarities(lowers, uppers, lowers_true, uppers_true):
     K_true = len(lowers_true)
     K = len(lowers)
 
@@ -148,8 +131,10 @@ def similarities_(lowers, uppers, lowers_true, uppers_true):
     return similarity
 
 
-def score(rules, lowers_true, uppers_true):
-    similarity = similarities(rules=rules,
+def score(lowers, uppers, lowers_true, uppers_true):
+
+    similarity = similarities(lowers=lowers,
+                              uppers=uppers,
                               lowers_true=lowers_true,
                               uppers_true=uppers_true)
 
@@ -306,17 +291,11 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         print("MSE train:", mse_train)
         mlflow.log_metrics({"mse.test": mse_test, "mse.train": mse_train})
 
-        return_condition = True
-        return_action = True
-        return_prediction = True
-        json_string = model.xcs_.json(return_condition, return_action,
-                                      return_prediction)
-        pop = json.loads(json_string)
-        rules = pop["classifiers"]
-
+        # Load ground truth.
         centers_true = data["centers"]
         spreads_true = data["spreads"]
-
+        lowers_true = centers_true - spreads_true
+        uppers_true = centers_true + spreads_true
         K = len(centers_true)
         mlflow.log_params({
             "data.K":
@@ -335,31 +314,25 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
             data["rsl_model_rsquared"],
         })
 
-        # Build a mapping that maps each index of a ground truth center to a
-        # list of the indexes of solution rules whose centers are closest to it.
-        mapping_norms = {i: [] for i in range(len(centers_true))}
-        dists = {i: [] for i in range(len(centers_true))}
-        for i, rule in enumerate(rules):
-            center = np.array(rule["condition"]["center"])
-            norms = np.linalg.norm(centers_true - center, axis=1)
-            idx = norms.argmin()
-            mapping_norms[idx].append(i)
-            dists[idx].append(norms[idx])
-
-        lowers_true = centers_true - spreads_true
-        uppers_true = centers_true + spreads_true
-
-        scores = score(rules, lowers_true=lowers_true, uppers_true=uppers_true)
+        # Score solution relative to ground truth.
+        lowers, uppers = bounds(model.rules_)
+        scores = score(lowers=lowers,
+                       uppers=uppers,
+                       lowers_true=lowers_true,
+                       uppers_true=uppers_true)
 
         # Perform the compaction.
         min_exp = 100
         mlflow.log_param("min_exp", min_exp)
 
+        rules = model.rules_
         idxs_exp = np.where(
             list(map(lambda r: r["experience"] > min_exp, rules)))
         rules2 = list(np.array(rules)[idxs_exp])
 
-        scores2 = score(rules2,
+        lowers2, uppers2 = bounds(rules2)
+        scores2 = score(lowers=lowers2,
+                        uppers=uppers2,
                         lowers_true=lowers_true,
                         uppers_true=uppers_true)
 
@@ -373,14 +346,14 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         # Recompute metrics.
         #
         # Scores of the ground truth are expected to be 1.
-        sim_true = similarities_(lowers_true, uppers_true, lowers_true,
+        sim_true = similarities(lowers_true, uppers_true, lowers_true,
                                  uppers_true)
         sim_true[sim_true == None] = 0.0
         assert np.all(np.max(sim_true, axis=0) == 1.0)
 
         random_state = check_random_state(seed)
         xcs2 = model._init_xcs(X)
-        pop2 = { "classifiers" : rules2 }
+        pop2 = {"classifiers": rules2}
         with open("pop2.json", "w") as outfile:
             json.dump(pop2, outfile)
         xcs2.json_read("pop2.json")
@@ -402,21 +375,22 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         mlflow.log_metrics({"mse2.test": mse_test2, "mse2.train": mse_train2})
 
         if DX == 1:
-            plt.scatter(X_test, y_test, color="C0", marker="+")
-            plt.plot(X_test, y_test_pred, color="C1")
-            plt.plot(X_test, y_test_pred2, color="C2")
+            fig, ax = plt.subplots(1, layout="constrained")
+            ax.scatter(X_test, y_test, color="C0", marker="+")
+            ax.plot(X_test, y_test_pred, color="C1")
+            ax.plot(X_test, y_test_pred2, color="C2")
             log_plot("pred", fig)
-
 
         # 1d
 
         # 5d
 
-
-        import IPython; IPython.embed(banner1=""); import sys; sys.exit(1)
+        import IPython
+        IPython.embed(banner1="")
+        import sys
+        sys.exit(1)
         # consider running `globals().update(locals())` in the shell to fix not being
         # able to put scopes around variables
-
 
         # TODO Initialize xcs2 properly so that we can make predictions (extract
         # init from sklearn_xcsf)

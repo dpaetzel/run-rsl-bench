@@ -194,3 +194,24 @@ class XCSF(BaseEstimator, RegressorMixin):
         pop = json.loads(json_string)
         rules = pop["classifiers"]
         return rules
+
+
+def bounds(rules):
+    lowers = []
+    uppers = []
+    for rule in rules:
+        cond = rule["condition"]
+        if cond["type"] == "hyperrectangle_ubr":
+            lower = np.array(rule["condition"]["bound1"])
+            upper = np.array(rule["condition"]["bound2"])
+        elif cond["type"] == "hyperrectangle_csr":
+            center = np.array(rule["condition"]["center"])
+            spread = np.array(rule["condition"]["spread"])
+            lower = center - spread
+            upper = center + spread
+        else:
+            raise NotImplementedError(
+                "bounds_ only exists for hyperrectangular conditions")
+        lowers.append(lower)
+        uppers.append(upper)
+    return lowers, uppers
