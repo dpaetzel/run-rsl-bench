@@ -275,10 +275,6 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         X_test, y_test = get_test(data)
         X_test = scaler_X.transform(X_test)
         y_test = scaler_y.transform(y_test)
-        # Sort test data for more straightforward prediction plotting.
-        perm = np.argsort(X_test.ravel())
-        X_test = X_test[perm]
-        y_test = y_test[perm]
 
         # Load ground truth.
         centers_true = data["centers"]
@@ -348,6 +344,13 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         y_pred_csr, y_test_pred_csr, scores_csr = eval_model(model_csr, "csr")
 
         if DX == 1:
+            # Sort test data for more straightforward prediction plotting.
+            perm = np.argsort(X_test.ravel())
+            X_test = X_test[perm]
+            y_test = y_test[perm]
+            y_test_pred_csr = y_test_pred_csr[perm]
+            y_test_pred_ubr = y_test_pred_ubr[perm]
+
             fig, ax = plt.subplots(2, layout="constrained")
             ax[0].scatter(X_test, y_test, color="C0", marker="+")
             ax[0].plot(X_test, y_test_pred_ubr, color="C1")
