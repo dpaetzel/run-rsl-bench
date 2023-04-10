@@ -1,4 +1,3 @@
-import json
 import os
 
 import matplotlib.pyplot as plt
@@ -7,8 +6,6 @@ from sklearn.metrics import mean_squared_error
 import click
 import mlflow
 import numpy as np
-from sklearn.compose import TransformedTargetRegressor  # type: ignore
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.utils import check_random_state
 
