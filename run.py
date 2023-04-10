@@ -156,6 +156,9 @@ def cli():
     pass
 
 
+defaults = dict(n_iter=100000, pop_size=200)
+
+
 @cli.command()
 @click.option("-s",
               "--startseed",
@@ -170,12 +173,12 @@ def cli():
               show_default=True,
               help="Last seed to use for initializing RNGs")
 @click.option("--n-iter",
-              default=10000,
+              default=defaults["n_iter"],
               type=int,
               show_default=True,
               help="Number of iterations to run the metaheuristic for")
 @click.option("--pop-size",
-              default=200,
+              default=defaults["pop_size"],
               type=int,
               show_default=True,
               help="Population size to be used by the metaheuristic")
@@ -212,12 +215,12 @@ def runmany(ctx, startseed, endseed, n_iter, pop_size, compact, run_name,
               show_default=True,
               help="Seed to use for initializing RNGs")
 @click.option("--n-iter",
-              default=10000,
+              default=defaults["n_iter"],
               type=int,
               show_default=True,
               help="Number of iterations to run the metaheuristic for")
 @click.option("--pop-size",
-              default=200,
+              default=defaults["pop_size"],
               type=int,
               show_default=True,
               help="Population size to be used by the metaheuristic")
@@ -372,20 +375,6 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                 cumulative=True)
         ax.legend()
         log_plot("hist-scores", fig)
-
-        # 1d
-
-        # 5d
-
-        import IPython
-        IPython.embed(banner1="")
-        import sys
-        sys.exit(1)
-        # consider running `globals().update(locals())` in the shell to fix not being
-        # able to put scopes around variables
-
-        # TODO Initialize xcs2 properly so that we can make predictions (extract
-        # init from sklearn_xcsf)
 
 
 if __name__ == "__main__":
