@@ -89,70 +89,110 @@ def datasets(path):
     # consider running `globals().update(locals())` in the shell to fix not being
     # able to put scopes around variables
 
+
+@cli.group()
+@click.pass_context
 @click.option("--tracking-uri", type=str, default="mlruns")
-def eval(tracking_uri):
+def eval(ctx, tracking_uri):
+    ctx.ensure_object(dict)
+
+    print(f"Setting mlflow tracking URI to {tracking_uri} …")
     mlflow.set_tracking_uri(tracking_uri)
 
+    print(f"Loading runs …")
     df = mlflow.search_runs(experiment_names=["runmany"])
+
     df = df[df.status == "FINISHED"]
-
-    def get_results(label):
-
-        def _get_results(uri):
-            return np.load(uri + f"/results.{label}.npz", allow_pickle=True)
-
-        return _get_results
-
-    def plt_group(df):
-        n_runs = len(df)
-        scores_pool_ubr = []
-        scores_pool_csr = []
-        # fig, ax = plt.subplots(n_runs, 2, layout="constrained")
-        for i in range(n_runs):
-            run = df.iloc[i]
-            results_ubr = get_results("ubr")(run["artifact_uri"])
-            results_csr = get_results("csr")(run["artifact_uri"])
-            scores_ubr = results_ubr["scores"]
-            scores_csr = results_csr["scores"]
-            for score in scores_ubr:
-                scores_pool_ubr.append(score)
-            for score in scores_csr:
-                scores_pool_csr.append(score)
-
-        fig, ax = plt.subplots(1, layout="constrained")
-        ax.hist(scores_pool_ubr,
-                bins=100,
-                cumulative=True,
-                histtype="step",
-                density=True,
-                label="ubr")
-        ax.hist(scores_pool_csr,
-                bins=100,
-                cumulative=True,
-                histtype="step",
-                density=True,
-                label="csr")
-        ax.legend()
-        plt.show()
+    df["params.data.K"] = df["params.data.K"].apply(int)
+    df["params.data.DX"] = df["params.data.DX"].apply(int)
+    df["params.data.N"] = df["params.data.N"].apply(int)
 
     df = df.set_index("run_id")
 
-    def get_scores(label):
-        return df["artifact_uri"].apply(
-            get_results(label)).apply(lambda data: data["scores"])
-
-    df["scores_ubr"] = get_scores("ubr")
-    df["scores_csr"] = get_scores("csr")
+    df["scores_ubr"] = df["artifact_uri"].apply(get_field("ubr", "scores"))
+    df["scores_csr"] = df["artifact_uri"].apply(get_field("csr", "scores"))
 
     df["scores_ubr_median"] = df["scores_ubr"].apply(np.median)
     df["scores_csr_median"] = df["scores_csr"].apply(np.median)
     df["scores_ubr_mean"] = df["scores_ubr"].apply(np.mean)
     df["scores_csr_mean"] = df["scores_csr"].apply(np.mean)
 
-    ## TODO Right now we pool over all data sets and runs. Possibly should
-    ## rather pool over each data set individuall? But then that should not make
-    ## a difference for these statistics (not for mean but maybe for median?!),
-    ## should it?
+    ctx.obj["df"] = df
+    print(f"Sucessfully loaded {len(df)} runs with FINISHED status.")
+
+
+def get_results(label):
+
+    def _get_results(uri):
+        return np.load(uri + f"/results.{label}.npz", allow_pickle=True)
+
+    return _get_results
+
+
+def get_field(label, field):
+
+    def _get_results(uri):
+        data = np.load(uri + f"/results.{label}.npz", allow_pickle=True)
+        out = data[field]
+        data.close()
+        return out
+
+    return _get_results
+
+
+@eval.command()
+@click.pass_context
+def hists_scores_pooled(ctx):
+    """
+    Pool all the scores (one score per rule in the final population of each run)
+    for ubr as well as csr and plot histograms.
+
+    Probably not that helpful.
+    """
+    df = ctx.obj["df"]
+
+    n_runs = len(df)
+    scores_pool_ubr = []
+    scores_pool_csr = []
+    # fig, ax = plt.subplots(n_runs, 2, layout="constrained")
+    for i in range(n_runs):
+        run = df.iloc[i]
+        results_ubr = get_results("ubr")(run["artifact_uri"])
+        results_csr = get_results("csr")(run["artifact_uri"])
+        scores_ubr = get_field("ubr", "scores")(run["artifact_uri"])
+        scores_csr = get_field("csr", "scores")(run["artifact_uri"])
+        for score in scores_ubr:
+            scores_pool_ubr.append(score)
+        for score in scores_csr:
+            scores_pool_csr.append(score)
+
+    fig, ax = plt.subplots(1, layout="constrained")
+    ax.hist(scores_pool_ubr,
+            bins=100,
+            cumulative=True,
+            histtype="step",
+            density=True,
+            label="ubr")
+    ax.hist(scores_pool_csr,
+            bins=100,
+            cumulative=True,
+            histtype="step",
+            density=True,
+            label="csr")
+    ax.legend()
+    fig.savefig("plots/eval/hists-scores-pooled.pdf")
+    plt.show()
+
+
+@eval.command()
+@click.pass_context
+def hists_scores_stats(ctx):
+    """
+    For each run, compute a single score by computing a statistic over the
+    scores of the final population. Plot histograms of these scores for csr as
+    well as ubr.
+    """
+    df = ctx.obj["df"]
 
     fig, ax = plt.subplots(2, layout="constrained")
     ax[0].hist(df["scores_ubr_median"],
@@ -183,6 +223,14 @@ def eval(tracking_uri):
                cumulative=True)
     ax[1].legend()
     ax[1].set_title("Distribution of mean score of final population")
+    fig.savefig("plots/eval/hists-scores-stats.pdf")
+    plt.show()
+
+
+@eval.command()
+@click.pass_context
+def all(ctx):
+    df = ctx.obj["df"]
 
     fig, ax = plt.subplots(2, layout="constrained")
     ax[0].hist(
