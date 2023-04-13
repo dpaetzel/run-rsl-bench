@@ -33,6 +33,7 @@
           mlflow
           numpy
           pandas
+          seaborn
           scipy
           scikit-learn
           toolz
