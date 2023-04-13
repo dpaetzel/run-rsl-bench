@@ -144,9 +144,11 @@ def get_field(label, field):
 @click.pass_context
 def hists_scores_pooled(ctx):
     """
-    Pool all the scores (one score per rule in the final population of each run)
-    for ubr as well as csr and plot histograms.
+    Pool *all* the scores (one score per rule in the final population of each
+    run, i.e. `pop_size` scores per run) for ubr as well as csr and plot
+    histograms.
 
+    Disregard input dimension, number of components etc. of the learning tasks.
     Probably not that helpful.
     """
     df = ctx.obj["df"]
@@ -229,7 +231,14 @@ def hists_scores_stats(ctx):
 
 @eval.command()
 @click.pass_context
-def all(ctx):
+def hists_mses_pooled(ctx):
+    """
+    Pool *all* the out-of-sample MSEs (one MSE per run) for ubr as well as csr
+    and plot histograms.
+
+    Disregard input dimension, number of components etc. of the learning tasks.
+    Probably not that helpful.
+    """
     df = ctx.obj["df"]
 
     fig, ax = plt.subplots(2, layout="constrained")
@@ -258,11 +267,13 @@ def all(ctx):
     ax[1].set_title(
         "Cumulative representation of the distribution of MSEs on hold out test data"
     )
+    fig.savefig("plots/eval/hists_mses_pooled.pdf")
     plt.show()
 
-    model = cmpbayes.NonNegative(df["metrics.mse.test.ubr"].to_numpy(),
-                                 df["metrics.mse.test.csr"].to_numpy()).fit(
-                                     random_seed=1337, num_samples=10000)
+@eval.command()
+@click.pass_context
+def all(ctx):
+    df = ctx.obj["df"]
 
     print(az.summary(model.infdata_))
 
