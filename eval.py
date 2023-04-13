@@ -12,6 +12,11 @@ import seaborn as sns
 sns.set_palette("colorblind")
 
 
+def plot_dist(df, ax):
+    sns.histplot(df, bins=50, ax=ax)
+    sns.kdeplot(df, cut=0, ax=ax)
+
+
 @click.group()
 def cli():
     pass
@@ -269,6 +274,49 @@ def hists_mses_pooled(ctx):
     )
     fig.savefig("plots/eval/hists_mses_pooled.pdf")
     plt.show()
+
+
+@eval.command()
+@click.pass_context
+def withintasks(ctx):
+    """
+    Very preliminary analysis of MSE variance within a single task vs. variance
+    within a K/DX configuration.
+
+    TODO Analyse this further using BDA
+    TODO Also analyse variance in *scores*
+    """
+    df = ctx.obj["df"]
+
+    g = sns.FacetGrid(data=df,
+                      row="params.data.DX",
+                      col="params.data.K",
+                      hue="params.data.fname")
+    g.map(sns.swarmplot, "metrics.mse.test.csr")
+    plt.show()
+
+    g = sns.FacetGrid(data=df,
+                      row="params.data.DX",
+                      col="params.data.K",
+                      hue="params.data.fname")
+    g.map(sns.swarmplot, "metrics.mse.test.ubr")
+    plt.show()
+
+    index = ["params.data.DX", "params.data.K", "params.data.fname"]
+    pertask = df.groupby(index)["metrics.mse.test.csr"].var()
+    perDXK = df.groupby(["params.data.DX",
+                         "params.data.K"])["metrics.mse.test.csr"].var()
+    print(
+        "TODO Compare pertask and perDXK and also include mean in that analysis, probably using BDA"
+    )
+
+    import IPython
+    IPython.embed(banner1="")
+    import sys
+    sys.exit(1)
+    # consider running `globals().update(locals())` in the shell to fix not being
+    # able to put scopes around variables
+
 
 @eval.command()
 @click.pass_context
