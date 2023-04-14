@@ -347,7 +347,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                          n_iter=n_iter,
                          compaction=compact,
                          random_state=random_state,
-                         condition="hyperrectangle_ubr",
+                         condition="hyperrectangle_csr",
                          ea_subsumption=True)
         y_pred_ubr, y_test_pred_ubr, scores_ubr = eval_model(model_ubr, "ubr")
         y_pred_csr, y_test_pred_csr, scores_csr = eval_model(model_csr, "csr")
