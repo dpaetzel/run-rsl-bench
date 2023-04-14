@@ -48,7 +48,7 @@
       devShell.${system} = pkgs.mkShell {
 
         buildInputs = with python.pkgs;
-          [ ipython python venvShellHook ]
+          [ ipython python venvShellHook pkgs.parallel ]
           ++ defaultPackage.${system}.propagatedBuildInputs;
 
         venvDir = "./_venv";
