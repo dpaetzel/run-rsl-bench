@@ -359,6 +359,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
             ax[1].plot(X_test, y_test_pred_csr, color="C1")
             ax[1].set_title("csr")
             log_plot(f"preds", fig)
+            plt.close("all")
 
         fig, ax = plt.subplots(1, layout="constrained")
         ax.hist(scores_ubr,
@@ -375,6 +376,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                 cumulative=True)
         ax.legend()
         log_plot("hist-scores", fig)
+        plt.close("all")
 
 
 if __name__ == "__main__":
