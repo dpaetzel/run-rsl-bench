@@ -146,10 +146,23 @@ class XCSF(BaseEstimator, RegressorMixin):
         xcs.action("integer")  # (dummy) integer actions
 
         wiggle_room = 0.05
+        X_min = -1.0 - wiggle_room
+        X_max = 1.0 + wiggle_room
+
+        N, DX = X.shape
+        vol_input_space = (X_max - X_min)**DX
+        # Assume a maximum of 1000 (arbitrary over-the-head number) cubic rules
+        # to cover input space.
+        vol_min_rule = vol_input_space / 1000.0
+        # The DX'th root is equal to the side length of a cube with
+        # `vol_min_rule` volume.
+        width_min_rule_cubic = vol_min_rule**(1 / DX)
+        spread_min_rule_cubic = width_min_rule_cubic / 2.0
+
         args = {
-            "min": -1.0 - wiggle_room,  # minimum value of a lower bound
-            "max": 1.0 + wiggle_room,  # maximum value of an upper bound
-            "spread_min": 0.1,  # minimum initial spread
+            "min": X_min,  # minimum value of a lower bound
+            "max": X_max,  # maximum value of an upper bound
+            "spread_min": spread_min_rule_cubic,  # minimum initial spread
             "eta":
             0,  # disable gradient descent of centers towards matched input mean
         }
