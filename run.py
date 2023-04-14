@@ -302,7 +302,9 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         def eval_model(model, label):
             model.fit(X, y)
 
+            print("Performing predictions on test data …")
             y_test_pred = model.predict(X_test)
+            print("Performing predictions on training data …")
             y_pred = model.predict(X)
 
             mse_test = mean_squared_error(y_test_pred, y_test)
@@ -321,10 +323,17 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                            lowers_true=lowers_true,
                            uppers_true=uppers_true)
 
+            experiences = np.array([r["experience"] for r in model.rules_])
+            if np.sum(experiences) < len(X):
+                print(f"WARNING: Training may have failed, the sum of "
+                      f"rule experiences is {np.sum(experiences)} for "
+                      f"{len(X)} training data points.")
+
             log_arrays(f"results.{label}",
                        y_pred=y_pred,
                        y_test_pred=y_test_pred,
-                       scores=scores)
+                       scores=scores,
+                       experiences=experiences)
 
             return y_pred, y_test_pred, scores
 
