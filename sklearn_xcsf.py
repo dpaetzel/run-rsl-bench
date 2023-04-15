@@ -103,7 +103,6 @@ class XCSF(BaseEstimator, RegressorMixin):
             # TODO expose other important ones here as well (epsilon0 etc.)
             nu=5,
             p_crossover=0.8,
-            p_explore=0.9,
             theta_ea=50,
             ea_subsumption=False,
             theta_sub=50,
@@ -116,7 +115,6 @@ class XCSF(BaseEstimator, RegressorMixin):
         self.n_pop_size = n_pop_size
         self.nu = nu
         self.p_crossover = p_crossover
-        self.p_explore = p_explore
         self.theta_ea = theta_ea
         self.ea_subsumption = ea_subsumption
         self.theta_sub = theta_sub
@@ -135,7 +133,6 @@ class XCSF(BaseEstimator, RegressorMixin):
             "POP_SIZE": self.n_pop_size,
             "NU": self.nu,
             "P_CROSSOVER": self.p_crossover,
-            "P_EXPLORE": self.p_explore,
             "THETA_EA": self.theta_ea,
             "EA_SUBSUMPTION": self.ea_subsumption,
             "THETA_SUB": self.theta_sub,
