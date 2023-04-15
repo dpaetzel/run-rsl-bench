@@ -249,7 +249,6 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         # TODO Log data hash (i.e. npzfile hash)
 
         print(f"RNG seed is {seed}.")
-        random_state = check_random_state(seed)
         mlflow.log_param("seed", seed)
 
         data = np.load(npzfile)
@@ -340,13 +339,13 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         model_ubr = XCSF(n_pop_size=pop_size,
                          n_iter=n_iter,
                          compaction=compact,
-                         random_state=random_state,
+                         random_state=seed,
                          condition="hyperrectangle_ubr",
                          ea_subsumption=True)
         model_csr = XCSF(n_pop_size=pop_size,
                          n_iter=n_iter,
                          compaction=compact,
-                         random_state=random_state,
+                         random_state=seed,
                          condition="hyperrectangle_csr",
                          ea_subsumption=True)
         y_pred_ubr, y_test_pred_ubr, scores_ubr = eval_model(model_ubr, "ubr")
