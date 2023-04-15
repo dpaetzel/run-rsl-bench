@@ -126,7 +126,9 @@ class XCSF(BaseEstimator, RegressorMixin):
         random_state = check_random_state(self.random_state)
 
         xcs = xcsf.XCS(X.shape[1], 1, 1)  # only 1 (dummy) action
-        xcs.seed(random_state.randint(np.iinfo(np.int32).max))
+        seed = random_state.randint(np.iinfo(np.int32).max)
+        print("XCSF seed:", seed)
+        xcs.seed(seed)
 
         params = default_xcs_params(X.shape[1]) | {
             "MAX_TRIALS": self.n_iter,
