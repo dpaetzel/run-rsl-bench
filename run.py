@@ -256,10 +256,10 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
 
         # Load train data.
         X, y = get_train(data)
-        scaler_X = MinMaxScaler(feature_range=(-1, 1))
+        scaler_X = MinMaxScaler(feature_range=(-1.0, 1.0))
         X = scaler_X.fit_transform(X).reshape(X.shape)
         scaler_y = StandardScaler()
-        y = scaler_y.fit_transform(y)
+        y = scaler_y.fit_transform(y.reshape(len(X), -1))
 
         N, DX = X.shape
         mlflow.log_params({
