@@ -7,6 +7,7 @@ import json
 import numpy as np
 import xcsf
 from sklearn.base import BaseEstimator, RegressorMixin  # type: ignore
+from sklearn.metrics import mean_absolute_error
 from sklearn.utils import check_random_state  # type: ignore
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
@@ -83,8 +84,8 @@ def get_xcs_params(xcs):
     }
 
 
-def default_xcs_params():
-    xcs = xcsf.XCS(1, 1, 1)
+def default_xcs_params(DX):
+    xcs = xcsf.XCS(DX, 1, 1)
     return get_xcs_params(xcs)
 
 
@@ -129,7 +130,7 @@ class XCSF(BaseEstimator, RegressorMixin):
         xcs = xcsf.XCS(X.shape[1], 1, 1)  # only 1 (dummy) action
         xcs.seed(random_state.randint(np.iinfo(np.int32).max))
 
-        params = default_xcs_params() | {
+        params = default_xcs_params(X.shape[1]) | {
             "MAX_TRIALS": self.n_iter,
             "POP_SIZE": self.n_pop_size,
             "NU": self.nu,
@@ -146,11 +147,11 @@ class XCSF(BaseEstimator, RegressorMixin):
         xcs.action("integer")  # (dummy) integer actions
 
         wiggle_room = 0.05
-        X_min = -1.0 - wiggle_room
-        X_max = 1.0 + wiggle_room
+        self.X_min_ = -1.0 - wiggle_room
+        self.X_max_ = 1.0 + wiggle_room
 
         N, DX = X.shape
-        vol_input_space = (X_max - X_min)**DX
+        vol_input_space = (self.X_max_ - self.X_min_)**DX
         # Assume a maximum of 1000 (arbitrary over-the-head number) cubic rules
         # to cover input space.
         vol_min_rule = vol_input_space / 1000.0
@@ -160,8 +161,8 @@ class XCSF(BaseEstimator, RegressorMixin):
         spread_min_rule_cubic = width_min_rule_cubic / 2.0
 
         args = {
-            "min": X_min,  # minimum value of a lower bound
-            "max": X_max,  # maximum value of an upper bound
+            "min": self.X_min_,  # minimum value of a lower bound
+            "max": self.X_max_,  # maximum value of an upper bound
             "spread_min": spread_min_rule_cubic,  # minimum initial spread
             "eta":
             0,  # disable gradient descent of centers towards matched input mean
@@ -184,11 +185,76 @@ class XCSF(BaseEstimator, RegressorMixin):
         # https://github.com/rpreen/xcsf/issues/17 ).
         y = y.reshape((len(X), -1))
 
+        N, DX = X.shape
+
         xcs = self._init_xcs(X)
+
+        # Make room for the default rule that we will add later.
+        xcs.POP_SIZE = self.n_pop_size - 1
 
         xcs.fit(X, y, True)
 
         self.xcs_ = xcs
+
+        # Simply predict the overall training data output mean everywhere (which
+        # should be 0.0 due to standardization).
+        pred = 0.0
+        if self.condition == "hyperrectangle_ubr":
+            bound1 = [self.X_min_] * DX
+            bound2 = [self.X_max_] * DX
+        elif self.condition == "hyperrectangle_csr":
+            bound1 = [(self.X_min_ + self.X_max_) / 2.0] * DX
+            bound2 = [(self.X_max_ - self.X_min_) / 2.0] * DX
+        else:
+            raise ValueError("Only hyperrectangle_{ubr,csr} are supported")
+        classifier = {
+            # TODO Check these defaults for being sensible
+            # "error": np.mean([r["error"] for r in self.rules_]),
+            "error": mean_absolute_error([pred] * N, y),
+            # "fitness": np.mean([r["fitness"] for r in self.rules_]),
+            # Should have a very small impact where other rules match.
+            # TODO Consider computing fitness using the XCSF formula
+            "fitness": 1e-10 * np.mean([r["fitness"] for r in self.rules_]),
+            "accuracy": np.mean([r["accuracy"] for r in self.rules_]),
+            "set_size": np.mean([r["set_size"] for r in self.rules_]),
+            "numerosity": 1,
+            "experience": N,
+            "time": self.n_iter + 1,
+            "samples_seen": N,
+            "samples_matched": N,
+            "condition": {
+                "type": self.condition,
+                "bound1": bound1,
+                "bound2": bound2,
+                "mutation": [0.0]
+            },
+            "action": {
+                "type": "integer",
+                "action": 0,
+                "mutation": [0.0]
+            },
+            "prediction": {
+                "type": "rls_linear",
+                "weights": [pred] + [0.0] * DX
+            }
+        }
+
+        json_str: str = json.dumps(classifier)  # dictionary to JSON
+
+        # json_insert_cl performs roulette wheel deletion if XCSF's population
+        # size is exceeded. We therefore have to make sure that our default rule
+        # does not get deleted just after having been added to the population.
+        #
+        # Setting a very high fitness to the default rule does not work: Albeit
+        # the probability of deletion is very small, it is not zero. Also,
+        # fitness also serves as the rule's mixing weight (and we don't want to
+        # bias the system prediction towards the default rule too much).
+        #
+        # Therefore we simply increase the population size (note that we
+        # decreased the population size by one before fitting so the
+        # population's size is now as the user configured).
+        xcs.POP_SIZE = self.n_pop_size
+        xcs.json_insert_cl(json_str)
 
         return self
 
@@ -196,7 +262,6 @@ class XCSF(BaseEstimator, RegressorMixin):
         check_is_fitted(self)
 
         X = check_array(X)
-        # self.xcs_.print_pset(True, True, True)
 
         return self.xcs_.predict(X)
 
