@@ -340,14 +340,12 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                          n_iter=n_iter,
                          compaction=compact,
                          random_state=seed,
-                         condition="hyperrectangle_ubr",
-                         ea_subsumption=True)
+                         condition="hyperrectangle_ubr")
         model_csr = XCSF(n_pop_size=pop_size,
                          n_iter=n_iter,
                          compaction=compact,
                          random_state=seed,
-                         condition="hyperrectangle_csr",
-                         ea_subsumption=True)
+                         condition="hyperrectangle_csr")
         y_pred_ubr, y_test_pred_ubr, scores_ubr = eval_model(model_ubr, "ubr")
         y_pred_csr, y_test_pred_csr, scores_csr = eval_model(model_csr, "csr")
 
