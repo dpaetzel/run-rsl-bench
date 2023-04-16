@@ -1,4 +1,5 @@
 import os
+import re
 
 import arviz as az
 import click
@@ -111,6 +112,11 @@ def eval(ctx, tracking_uri):
     df["params.data.K"] = df["params.data.K"].apply(int)
     df["params.data.DX"] = df["params.data.DX"].apply(int)
     df["params.data.N"] = df["params.data.N"].apply(int)
+
+    def data_seed(fname):
+        return int(
+            re.match(r"^.*/rsl-.*-.*-.*-(.*)\.npz", fname)[1])
+    df["params.data.seed"] = df["params.data.fname"].apply(data_seed)
 
     df = df.set_index("run_id")
 
