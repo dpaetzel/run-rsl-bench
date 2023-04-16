@@ -114,8 +114,8 @@ def eval(ctx, tracking_uri):
     df["params.data.N"] = df["params.data.N"].apply(int)
 
     def data_seed(fname):
-        return int(
-            re.match(r"^.*/rsl-.*-.*-.*-(.*)\.npz", fname)[1])
+        return int(re.match(r"^.*/rsl-.*-.*-.*-(.*)\.npz", fname)[1])
+
     df["params.data.seed"] = df["params.data.fname"].apply(data_seed)
 
     df = df.set_index("run_id")
@@ -349,7 +349,6 @@ def sanitycheck(ctx):
         assert np.sum(exps_csr) > 0
 
 
-
 @eval.command()
 @click.pass_context
 def mean_mse_tendencies(ctx):
@@ -375,6 +374,183 @@ def mean_mse_tendencies(ctx):
     ax[1].set_title("metrics.mse.test.csr")
     fig.savefig("plots/eval/mean-mse-tendencies.pdf")
     plt.show()
+
+
+@eval.command()
+@click.pass_context
+def nonnegative(ctx):
+    """
+    Per learning task, fit `cmpbayes.NonNegative` to ubr and csr out-of-sample
+    MSE data and compute the posterior of their expected difference. Based on
+    that posterior, compute probabilities of one outperforming the other as well
+    as practically equivalent performance (uses a rope; see code for its value).
+    """
+    df = ctx.obj["df"]
+
+    def fit(group):
+        try:
+            model = cmpbayes.NonNegative(
+                group["metrics.mse.test.ubr"].to_numpy(),
+                group["metrics.mse.test.csr"].to_numpy()).fit(
+                    random_seed=1337, num_samples=10000)
+        except:
+            print("Exception in fit(group)")
+            import IPython
+            IPython.embed(banner1="")
+            import sys
+            sys.exit(1)
+            # consider running `globals().update(locals())` in the shell to fix not being
+            # able to put scopes around variables
+
+        summary = az.summary(model.infdata_)
+        print(summary)
+
+        diff = model.infdata_.posterior.mean2_minus_mean1.to_numpy().ravel()
+
+        rope = 0.01
+
+        probs = {
+            "p(MSE_test(csr) < MSE_test(ubr))":
+            np.sum(diff < -rope) / len(diff),
+            "p(MSE_test(csr) = MSE_test(ubr))":
+            np.sum((-rope <= diff) & (diff <= rope)) / len(diff),
+            "p(MSE_test(ubr) < MSE_test(csr))":
+            np.sum(rope < diff) / len(diff),
+        }
+        print(probs)
+
+        diff = np.sort(diff)
+        l = diff[int(0.025 * len(diff))]
+        u = diff[int(0.975 * len(diff))]
+        print(f"95% HDPI of MSE_test(csr) - MSE_test(ubr): [{l:.2}, {u:.2}]")
+
+        # If I return `model` for all the groups, I run out of RAM.
+        # return model, probs, l, u, diff
+        return probs, l, u, diff, summary
+
+    def explode_fit_data(df):
+        df = df.rename("sample").reset_index()
+
+        df[["probs", "l", "u", "sample",
+            "summary"]] = pd.DataFrame(df["sample"].tolist(), index=df.index)
+        names = list(df["probs"].iloc[0].keys())
+        df[names] = pd.DataFrame(df["probs"].to_list(), index=df.index)
+        return df
+
+    index = ["params.data.DX", "params.data.K", "params.data.seed"]
+
+    # Let's only look at DX=5 for now.
+    print("WARNING: Only looking at DX=5 for now!")
+    print("WARNING: Only looking at DX=5 for now!")
+    df = df[df["params.data.DX"] == 5]
+
+    diffs = df.groupby(index).apply(fit)
+    diffs = explode_fit_data(diffs)
+    if False:
+        diffs.to_pickle("plots/eval/nonnegative-diffs-DX5.pkl")
+
+    names = list(diffs["probs"].iloc[0].keys())
+    print(diffs.set_index(index)[names].round(2))
+
+
+    diffs_rounded = diffs.set_index(index)[names].round(2)
+    # Sort each K-group ascendingly acc. to p(csr < ubr).
+    diffs_rounded = diffs_rounded.sort_values(
+        "p(MSE_test(csr) < MSE_test(ubr))").reset_index(
+            2).sort_index().set_index("params.data.seed", append=True)
+
+    import IPython; IPython.embed(banner1=""); import sys; sys.exit(1)
+    # consider running `globals().update(locals())` in the shell to fix not being
+    # able to put scopes around variables
+
+
+    def plot_probs(df, ax):
+        df_ = df.filter(regex="^p\(.*").to_numpy()
+        ax.matshow(df_)
+        ax.set_xticks(range(3))
+        ax.set_xticklabels(["csr < ubr", "csr = ubr", "ubr < csr"])
+        ax.set_yticks(df["params.data.seed"])
+        ax.set_yticklabels(df["params.data.seed"])
+        # https://stackoverflow.com/a/20998634
+        for (i, j), z in np.ndenumerate(df_):
+            ax.text(j,
+                    i,
+                    '{:0.2f}'.format(z),
+                    ha='center',
+                    va='center',
+                    bbox=dict(boxstyle='round',
+                                facecolor='white',
+                                edgecolor='0.3'))
+
+        return ax
+        # fig.savefig("plots/eval/nonnegative-k-dx-plot-probs.pdf")
+        # plt.show()
+
+
+    diffs_rounded_ = diffs_rounded.reset_index()
+    Ks = diffs_rounded_["params.data.K"].unique()
+    fig, ax = plt.subplots(1,
+                           len(Ks),
+                           layout="constrained",
+                           figsize=(len(Ks) * 2, 10))
+    for i, K in enumerate(Ks):
+        plot_probs(diffs_rounded_[diffs_rounded_["params.data.K"] == K], ax=ax[i])
+
+    plt.show()
+
+
+    # g = sns.FacetGrid(data=diffs_rounded.reset_index(), col="params.data.K")
+    # g.map(plot_probs, diffs_rounded.keys())
+    # plt.show()
+    # diffs_rounded.groupby("params.data.K").apply(plot_probs)
+
+    # mses_mean = df.groupby().mean().filter(
+    #     regex="^metrics\.mse\.test\..*")
+    # ax[1].matshow(mses_mean.round(2).to_numpy())
+    # ax[1].set_xticks(range(2))
+    # ax[1].set_xticklabels(["ubr", "csr"])
+    # ax[1].set_yticks(range(len(df.index)))
+    # ax[0].set_yticklabels(
+    #     list(map(lambda tpl: f"DX={tpl[0]}, K={tpl[1]}", df.index)))
+    # # https://stackoverflow.com/a/20998634
+    # for (i, j), z in np.ndenumerate(mses_mean):
+    #     ax[1].text(j,
+    #             i,
+    #             '{:0.2f}'.format(z),
+    #             ha='center',
+    #             va='center',
+    #             bbox=dict(boxstyle='round',
+    #                         facecolor='white',
+    #                         edgecolor='0.3'))
+
+
+    samples_small = diffs.set_index(index)["sample"].apply(
+        lambda s: np.random.choice(s, size=10000))
+    samples_small = samples_small.explode()
+    samples_small = samples_small.reset_index()
+    g = sns.FacetGrid(data=samples_small,
+                      row="params.data.seed",
+                      col="params.data.K")
+    g.map(sns.histplot, "sample")
+    plt.show()
+
+    # TODO map this pointplot over all the comparisons we made using FacetGrid
+    # diffs_ = diffs.set_index(index)[names].stack()
+    # diffs_ = diffs_.rename("p").reset_index().rename(
+    #     columns={"level_2": "event"})
+    # diffs_["DX,K"] = list(
+    #     zip(diffs_["params.data.DX"], diffs_["params.data.K"]))
+    # fig, ax = plt.subplots(1, layout="constrained", figsize=(10, 10))
+    # plot = sns.pointplot(data=diffs_, x="event", y="p", hue="DX,K", ax=ax)
+    # plot.figure.savefig("plots/eval/nonnegative-K-DX1.pdf")
+    # plt.show()
+
+    import IPython
+    IPython.embed(banner1="")
+    import sys
+    sys.exit(1)
+    # consider running `globals().update(locals())` in the shell to fix not being
+    # able to put scopes around variables
 
 
 @eval.command()
