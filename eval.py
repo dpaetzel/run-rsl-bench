@@ -349,6 +349,34 @@ def sanitycheck(ctx):
         assert np.sum(exps_csr) > 0
 
 
+
+@eval.command()
+@click.pass_context
+def mean_mse_tendencies(ctx):
+    """
+    Plot rough tendencies (means) of out-of-sample MSE behaviour with respect to
+    altering `K` and `DX` for ubr and csr.
+    """
+    df = ctx.obj["df"]
+
+    fig, ax = plt.subplots(2, layout="constrained")
+    sns.pointplot(data=df,
+                  x="params.data.K",
+                  y="metrics.mse.test.ubr",
+                  hue="params.data.DX",
+                  ax=ax[0])
+    sns.pointplot(data=df,
+                  x="params.data.K",
+                  y="metrics.mse.test.csr",
+                  hue="params.data.DX",
+                  ax=ax[1])
+    # TODO Plot linear model errors here as well
+    ax[0].set_title("metrics.mse.test.ubr")
+    ax[1].set_title("metrics.mse.test.csr")
+    fig.savefig("plots/eval/mean-mse-tendencies.pdf")
+    plt.show()
+
+
 @eval.command()
 @click.pass_context
 def all(ctx):
