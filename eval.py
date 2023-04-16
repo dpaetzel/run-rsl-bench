@@ -400,6 +400,20 @@ def all(ctx):
     u = diff[int(0.975 * len(diff))]
     print(f"95% HDPI of MSE_test(ubr) - MSE_test(csr): [{l:.2}, {u:.2}]")
 
+
+@eval.command()
+@click.pass_context
+def interactive(ctx):
+    df = ctx.obj["df"]
+
+    # Analyse run durations.
+    df["duration"] = (df.end_time
+                      - df.start_time).apply(lambda x: x.total_seconds())
+    df["duration_min"] = df["duration"] / 60
+    g = sns.FacetGrid(data=df, col="params.data.DX")
+    g.map(sns.histplot, "duration_min")
+    plt.show()
+
     import IPython
     IPython.embed(banner1="")
     import sys
