@@ -143,7 +143,15 @@ def get_results(label):
 def get_field(label, field):
 
     def _get_results(uri):
-        data = np.load(uri + f"/results.{label}.npz", allow_pickle=True)
+        tracking_uri = mlflow.get_tracking_uri()
+        assert tracking_uri.endswith("/mlruns"), (
+            "Valid tracking URIs should "
+            "have the suffix \"/mlruns\"")
+        assert uri.startswith("mlruns/")
+
+        data = np.load(tracking_uri.removesuffix("mlruns") + uri
+                       + f"/results.{label}.npz",
+                       allow_pickle=True)
         out = data[field]
         data.close()
         return out
