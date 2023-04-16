@@ -334,6 +334,23 @@ def withintasks(ctx):
 
 @eval.command()
 @click.pass_context
+def sanitycheck(ctx):
+    """
+    Perform a quick sanity check of the run data. This is meant as a kind of
+    test suite for run data that captures problems that I encountered earlier.
+    """
+    df = ctx.obj["df"]
+
+    for i in range(len(df)):
+        run = df.iloc[i]
+        exps_ubr = get_field("ubr", "experiences")(run["artifact_uri"])
+        exps_csr = get_field("csr", "experiences")(run["artifact_uri"])
+        assert np.sum(exps_ubr) > 0
+        assert np.sum(exps_csr) > 0
+
+
+@eval.command()
+@click.pass_context
 def all(ctx):
     df = ctx.obj["df"]
 
