@@ -590,6 +590,41 @@ def interactive(ctx):
     g.map(sns.histplot, "duration_min")
     plt.show()
 
+
+@eval.command()
+@click.pass_context
+def mses_per_task(ctx):
+    df = ctx.obj["df"]
+
+    index = ["params.data.DX", "params.data.K", "params.data.seed"]
+    metrics = ["metrics.mse.test.csr", "metrics.mse.test.ubr"]
+    df_metrics = df.reset_index()[index + metrics]
+    df_metrics = df_metrics.set_index(index).stack().reset_index().rename(
+        columns={
+            0: "OOS MSE",
+            "level_3": "Algorithm",
+        } | pretty)
+    df_metrics["Algorithm"] = df_metrics["Algorithm"].apply(
+        lambda s: s.replace("metrics.mse.test.", "").upper())
+    g = sns.FacetGrid(data=df_metrics,
+                      col=pretty["params.data.DX"],
+                      row=pretty["params.data.K"],
+                      hue="Algorithm",
+                      hue_order=["UBR", "CSR"],
+                      sharey=False,
+                      margin_titles=True)
+    g.map(
+        sns.pointplot,
+        pretty["params.data.seed"],
+        "OOS MSE",
+        order=np.sort(df_metrics[pretty["params.data.seed"]].unique()),
+        errorbar=("pi", 95),
+        capsize=0.3,
+        errwidth=2.0,
+    )
+    g.add_legend()
+    plt.savefig("plots/eval/mses-per-task.pdf")
+    plt.show()
     import IPython
     IPython.embed(banner1="")
     import sys
