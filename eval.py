@@ -628,31 +628,7 @@ def nonnegative(ctx):
 
 @eval.command()
 @click.pass_context
-def all(ctx):
-    df = ctx.obj["df"]
-
-    print(az.summary(model.infdata_))
-
-    diff = model.infdata_.posterior.mean2_minus_mean1.to_numpy().ravel()
-
-    rope = 0.01
-
-    probs = {
-        "p(MSE_test(csr) > MSE_test(ubr))" : np.sum(rope < diff) / len(diff),
-        "p(MSE_test(ubr) > MSE_test(csr))" : np.sum(diff < -rope) / len(diff),
-        "p(MSE_test(csr) = MSE_test(ubr))" : np.sum((-rope <= diff) & (diff <= rope)) / len(diff),
-    }
-    print(probs)
-
-    diff = np.sort(diff)
-    l = diff[int(0.025 * len(diff))]
-    u = diff[int(0.975 * len(diff))]
-    print(f"95% HDPI of MSE_test(ubr) - MSE_test(csr): [{l:.2}, {u:.2}]")
-
-
-@eval.command()
-@click.pass_context
-def interactive(ctx):
+def durations(ctx):
     df = ctx.obj["df"]
 
     # Analyse run durations.
