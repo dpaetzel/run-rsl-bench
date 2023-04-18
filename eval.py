@@ -20,6 +20,17 @@ pretty = {
 }
 
 
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+
+# https://github.com/mwaskom/seaborn/issues/915#issuecomment-971204836
+def fixed_boxplot(x, y, *args, label=None, **kwargs):
+    """
+    sns.boxplot usable with sns.FacetGrid.
+    """
+    sns.boxplot(x=x, y=y, *args, **kwargs, labels=[label])
 
 
 def plot_dist(df, ax):
@@ -96,6 +107,11 @@ def datasets(path):
     n_datasets = df.groupby(index).apply(len).unique()
     print(f"Mean of the {n_datasets} datasets per {index} combination")
     print(means[["linear_model_mse", "rsl_model_mse"]].to_latex())
+
+    # A more space saving representation.
+    means = means[["linear_model_mse", "rsl_model_mse"
+                   ]].reset_index().set_index(["DX", "N", "K"]).unstack("K")
+    print(means.to_latex())
 
     import IPython
     IPython.embed(banner1="")
@@ -509,17 +525,19 @@ def nonnegative(ctx):
     names = list(diffs["probs"].iloc[0].keys())
     print(diffs.set_index(index)[names].round(2))
 
-
     diffs_rounded = diffs.set_index(index)[names].round(2)
     # Sort each K-group ascendingly acc. to p(csr < ubr).
     diffs_rounded = diffs_rounded.sort_values(
         "p(MSE_test(csr) < MSE_test(ubr))").reset_index(
             2).sort_index().set_index("params.data.seed", append=True)
 
-    import IPython; IPython.embed(banner1=""); import sys; sys.exit(1)
+    import IPython
+    IPython.embed(banner1="")
+    import sys
+    sys.exit(1)
+
     # consider running `globals().update(locals())` in the shell to fix not being
     # able to put scopes around variables
-
 
     def plot_probs(df, ax):
         df_ = df.filter(regex="^p\(.*").to_numpy()
@@ -536,13 +554,12 @@ def nonnegative(ctx):
                     ha='center',
                     va='center',
                     bbox=dict(boxstyle='round',
-                                facecolor='white',
-                                edgecolor='0.3'))
+                              facecolor='white',
+                              edgecolor='0.3'))
 
         return ax
         # fig.savefig("plots/eval/nonnegative-k-dx-plot-probs.pdf")
         # plt.show()
-
 
     diffs_rounded_ = diffs_rounded.reset_index()
     Ks = diffs_rounded_["params.data.K"].unique()
@@ -551,10 +568,10 @@ def nonnegative(ctx):
                            layout="constrained",
                            figsize=(len(Ks) * 2, 10))
     for i, K in enumerate(Ks):
-        plot_probs(diffs_rounded_[diffs_rounded_["params.data.K"] == K], ax=ax[i])
+        plot_probs(diffs_rounded_[diffs_rounded_["params.data.K"] == K],
+                   ax=ax[i])
 
     plt.show()
-
 
     # g = sns.FacetGrid(data=diffs_rounded.reset_index(), col="params.data.K")
     # g.map(plot_probs, diffs_rounded.keys())
@@ -579,7 +596,6 @@ def nonnegative(ctx):
     #             bbox=dict(boxstyle='round',
     #                         facecolor='white',
     #                         edgecolor='0.3'))
-
 
     samples_small = diffs.set_index(index)["sample"].apply(
         lambda s: np.random.choice(s, size=10000))
@@ -658,7 +674,7 @@ def mses_per_task(ctx):
     df_metrics = df.reset_index()[index + metrics]
     df_metrics = df_metrics.set_index(index).stack().reset_index().rename(
         columns={
-            0: "OOS MSE",
+            0: "Test MSE",
             "level_3": "Algorithm",
         } | pretty)
     df_metrics["Algorithm"] = df_metrics["Algorithm"].apply(
@@ -673,9 +689,9 @@ def mses_per_task(ctx):
     g.map(
         sns.pointplot,
         pretty["params.data.seed"],
-        "OOS MSE",
+        "Test MSE",
         order=np.sort(df_metrics[pretty["params.data.seed"]].unique()),
-        errorbar=("pi", 95),
+        errorbar=("ci", 95),
         capsize=0.3,
         errwidth=2.0,
     )
