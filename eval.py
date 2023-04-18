@@ -11,6 +11,15 @@ import pandas as pd
 import seaborn as sns
 
 sns.set_palette("colorblind")
+pd.options.display.max_rows = 10000
+
+pretty = {
+    "params.data.DX": "$\mathcal{D}_\mathcal{X}$",
+    "params.data.K": "$K$",
+    "params.data.seed": "Data Seed"
+}
+
+
 
 
 def plot_dist(df, ax):
@@ -245,6 +254,54 @@ def hists_scores_stats(ctx):
     ax[1].legend()
     ax[1].set_title("Distribution of mean score of final population")
     fig.savefig("plots/eval/hists-scores-stats.pdf")
+    plt.show()
+
+
+@eval.command()
+@click.pass_context
+def scores_per_task_pooled(ctx):
+    """
+    For each task, pool the scores of all the rules of all the runs for that
+    task and plot their mean and bootstrapped CI.
+    """
+    df = ctx.obj["df"]
+
+    index = ["params.data.DX", "params.data.K", "params.data.seed"]
+    scores = ["scores_ubr", "scores_csr"]
+    df_scores = df.reset_index()[index + scores]
+    # df_scores.groupby(index)["scores_ubr"].apply(lambda x: np.concatenate(x.to_numpy()))
+    df_scores_pooled = pd.DataFrame()
+    df_scores_pooled["scores_ubr"] = df_scores.groupby(
+        index)["scores_ubr"].apply(lambda x: np.concatenate(x.to_numpy()))
+    df_scores_pooled["scores_csr"] = df_scores.groupby(
+        index)["scores_csr"].apply(lambda x: np.concatenate(x.to_numpy()))
+
+    df_scores_pooled = df_scores_pooled.stack().reset_index().rename(
+        columns={
+            0: "Rule Similarity Score",
+            "level_3": "Algorithm",
+        } | pretty)
+    df_scores_pooled["Algorithm"] = df_scores_pooled["Algorithm"].apply(
+        lambda s: s.replace("scores_", "").upper())
+    df_scores_pooled = df_scores_pooled.explode("Rule Similarity Score")
+    g = sns.FacetGrid(data=df_scores_pooled,
+                      col=pretty["params.data.DX"],
+                      row=pretty["params.data.K"],
+                      hue="Algorithm",
+                      hue_order=["UBR", "CSR"],
+                      sharey=False,
+                      margin_titles=True)
+    g.map(
+        sns.pointplot,
+        pretty["params.data.seed"],
+        "Rule Similarity Score",
+        order=np.sort(df_scores_pooled[pretty["params.data.seed"]].unique()),
+        errorbar=("ci", 95),
+        capsize=0.3,
+        errwidth=2.0,
+    )
+    g.add_legend()
+    plt.savefig("plots/eval/scores-per-task-pooled.pdf")
     plt.show()
 
 
