@@ -698,6 +698,80 @@ def mses_per_task(ctx):
     g.add_legend()
     plt.savefig("plots/eval/mses-per-task.pdf")
     plt.show()
+
+
+@eval.command()
+@click.pass_context
+def variances(ctx):
+    df = ctx.obj["df"]
+
+    index = ["params.data.DX", "params.data.K", "params.data.seed"]
+    metrics = ["metrics.mse.test.csr", "metrics.mse.test.ubr"]
+    std_per_task = df.groupby(index).std()[metrics]
+    std_per_task = std_per_task.stack().reset_index().rename(
+        columns={
+            0: "Std of OOS MSEs",
+            "level_3": "Algorithm"
+        })
+    std_per_task["Algorithm"] = std_per_task["Algorithm"].apply(
+        lambda s: s.replace("metrics.mse.test.", "").upper())
+    print("WARNING: The following values are not normalized!")
+    print(
+        f"Min OOS MSE std per task:\n{std_per_task.groupby('Algorithm').min()}"
+    )
+    print(
+        f"Max OOS MSE std per task:\n{std_per_task.groupby('Algorithm').max()}"
+    )
+
+    sns.histplot(data=std_per_task,
+                 x="Std of OOS MSEs",
+                 hue="Algorithm",
+                 element="step",
+                 cumulative=True,
+                 fill=False)
+    plt.show()
+
+    # Plot per (DX,K) the histogram of stds within each task for that (DX,K)
+    # pair. I.e. how much the algorithm seed matters for MSE.
+    g = sns.FacetGrid(data=std_per_task,
+                      col="params.data.DX",
+                      row="params.data.K",
+                      hue="Algorithm",
+                      sharey=False,
+                      sharex=False,
+                      margin_titles=True)
+    g.map(
+        sns.histplot,
+        "Std of OOS MSEs",
+        element="step",
+        bins=50,
+        # element="poly",
+        cumulative=True,
+        fill=False)
+    #       stat="density")
+    # g.map(sns.kdeplot,
+    #       "Std of OOS MSEs",
+    #       # element="step",
+    #       cumulative=True,
+    #       fill=False,
+    #       cut=0)
+    g.add_legend()
+    plt.savefig("plots/eval/variances-std-per-task.pdf")
+    plt.show()
+
+    import IPython
+    IPython.embed(banner1="")
+    import sys
+    sys.exit(1)
+    # consider running `globals().update(locals())` in the shell to fix not being
+    # able to put scopes around variables
+
+
+@eval.command()
+@click.pass_context
+def interactive(ctx):
+    df = ctx.obj["df"]
+
     import IPython
     IPython.embed(banner1="")
     import sys
