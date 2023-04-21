@@ -2,6 +2,7 @@ import os
 import tempfile
 
 import click
+import json
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
@@ -234,6 +235,14 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                        y_test_pred=y_test_pred,
                        scores=scores,
                        experiences=experiences)
+
+            return_condition = True
+            return_action = True
+            return_prediction = True
+            json_string = model.xcs_.json(return_condition, return_action,
+                                          return_prediction)
+            mlflow.log_text(json_string,
+                            artifact_file=f"population.{label}.json")
 
             return y_pred, y_test_pred, scores
 

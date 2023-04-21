@@ -4,6 +4,7 @@ import re
 import arviz as az
 import click
 import cmpbayes
+import json
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
@@ -19,8 +20,8 @@ pretty = {
     "params.data.seed": "Data Seed"
 }
 
-
 import matplotlib
+
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
@@ -145,8 +146,8 @@ def eval(ctx, tracking_uri):
 
     df = df.set_index("run_id")
 
-    df["scores_ubr"] = df["artifact_uri"].apply(get_field("ubr", "scores"))
-    df["scores_csr"] = df["artifact_uri"].apply(get_field("csr", "scores"))
+    df["scores_ubr"] = df["artifact_uri"].apply(get_results("ubr", "scores"))
+    df["scores_csr"] = df["artifact_uri"].apply(get_results("csr", "scores"))
 
     df["scores_ubr_median"] = df["scores_ubr"].apply(np.median)
     df["scores_csr_median"] = df["scores_csr"].apply(np.median)
@@ -157,15 +158,7 @@ def eval(ctx, tracking_uri):
     print(f"Sucessfully loaded {len(df)} runs with FINISHED status.")
 
 
-def get_results(label):
-
-    def _get_results(uri):
-        return np.load(uri + f"/results.{label}.npz", allow_pickle=True)
-
-    return _get_results
-
-
-def get_field(label, field):
+def get_results(label, field):
 
     def _get_results(uri):
         tracking_uri = mlflow.get_tracking_uri()
@@ -179,6 +172,26 @@ def get_field(label, field):
                        allow_pickle=True)
         out = data[field]
         data.close()
+        return out
+
+    return _get_results
+
+
+# TODO Consider getting rid of repetition with get_results
+def get_pop(label):
+
+    def _get_results(uri):
+        tracking_uri = mlflow.get_tracking_uri()
+        assert tracking_uri.endswith("/mlruns"), (
+            "Valid tracking URIs should "
+            "have the suffix \"/mlruns\"")
+        assert uri.startswith("mlruns/")
+
+        # Opening JSON file
+        with open(
+                tracking_uri.removesuffix("mlruns") + uri
+                + f"/population.{label}.json", "r") as f:
+            out = json.load(f)
         return out
 
     return _get_results
@@ -205,8 +218,8 @@ def hists_scores_pooled(ctx):
         run = df.iloc[i]
         results_ubr = get_results("ubr")(run["artifact_uri"])
         results_csr = get_results("csr")(run["artifact_uri"])
-        scores_ubr = get_field("ubr", "scores")(run["artifact_uri"])
-        scores_csr = get_field("csr", "scores")(run["artifact_uri"])
+        scores_ubr = get_results("ubr", "scores")(run["artifact_uri"])
+        scores_csr = get_results("csr", "scores")(run["artifact_uri"])
         for score in scores_ubr:
             scores_pool_ubr.append(score)
         for score in scores_csr:
@@ -416,8 +429,8 @@ def sanitycheck(ctx):
 
     for i in range(len(df)):
         run = df.iloc[i]
-        exps_ubr = get_field("ubr", "experiences")(run["artifact_uri"])
-        exps_csr = get_field("csr", "experiences")(run["artifact_uri"])
+        exps_ubr = get_results("ubr", "experiences")(run["artifact_uri"])
+        exps_csr = get_results("csr", "experiences")(run["artifact_uri"])
         assert np.sum(exps_ubr) > 0
         assert np.sum(exps_csr) > 0
 
