@@ -125,14 +125,15 @@ def datasets(path):
 @cli.group()
 @click.pass_context
 @click.option("--tracking-uri", type=str, default="mlruns")
-def eval(ctx, tracking_uri):
+@click.option("--exp-name", type=str, default="runmany")
+def eval(ctx, tracking_uri, exp_name):
     ctx.ensure_object(dict)
 
     print(f"Setting mlflow tracking URI to {tracking_uri} …")
     mlflow.set_tracking_uri(tracking_uri)
 
     print(f"Loading runs …")
-    df = mlflow.search_runs(experiment_names=["runmany"])
+    df = mlflow.search_runs(experiment_names=[exp_name])
 
     df = df[df.status == "FINISHED"]
     df["params.data.K"] = df["params.data.K"].apply(int)
