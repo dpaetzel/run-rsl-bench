@@ -159,45 +159,6 @@ def eval(ctx, tracking_uri, exp_name):
     print(f"Sucessfully loaded {len(df)} runs with FINISHED status.")
 
 
-def get_results(label, field):
-
-    def _get_results(uri):
-        tracking_uri = mlflow.get_tracking_uri()
-        assert tracking_uri.endswith("/mlruns"), (
-            "Valid tracking URIs should "
-            "have the suffix \"/mlruns\"")
-        assert uri.startswith("mlruns/")
-
-        data = np.load(tracking_uri.removesuffix("mlruns") + uri
-                       + f"/results.{label}.npz",
-                       allow_pickle=True)
-        out = data[field]
-        data.close()
-        return out
-
-    return _get_results
-
-
-# TODO Consider getting rid of repetition with get_results
-def get_pop(label):
-
-    def _get_results(uri):
-        tracking_uri = mlflow.get_tracking_uri()
-        assert tracking_uri.endswith("/mlruns"), (
-            "Valid tracking URIs should "
-            "have the suffix \"/mlruns\"")
-        assert uri.startswith("mlruns/")
-
-        # Opening JSON file
-        with open(
-                tracking_uri.removesuffix("mlruns") + uri
-                + f"/population.{label}.json", "r") as f:
-            out = json.load(f)
-        return out
-
-    return _get_results
-
-
 @eval.command()
 @click.pass_context
 def hists_scores_pooled(ctx):
@@ -430,6 +391,7 @@ def sanitycheck(ctx):
 
     for i in range(len(df)):
         run = df.iloc[i]
+        raise NotImplementedError("Use load_array instead of get_results here")
         exps_ubr = get_results("ubr", "experiences")(run["artifact_uri"])
         exps_csr = get_results("csr", "experiences")(run["artifact_uri"])
         assert np.sum(exps_ubr) > 0

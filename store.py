@@ -7,6 +7,7 @@ import tempfile
 
 import joblib
 import mlflow
+import numpy as np
 
 
 def _artifact_dir(artifact_uri):
@@ -54,6 +55,29 @@ def load_population(label):
         # TODO Consider not hardcoding filenames twice
         with open(path + f"/population.{label}.json", "r") as f:
             out = json.load(f)
+        return out
+
+    return _get_results
+
+
+# Copied from berbl.utils.
+def log_arrays(artifact_name, **arrays):
+    with tempfile.TemporaryDirectory(
+            prefix=f"{artifact_name}-") as tempdir_name:
+        fname = f"{tempdir_name}/{artifact_name}.npz"
+        np.savez(fname, **arrays)
+        mlflow.log_artifact(fname)
+
+
+
+def load_array(label, array_name):
+
+    def _get_results(artifact_uri):
+        path = _artifact_dir(artifact_uri)
+        # TODO Consider not hardcoding filenames twice
+        data = np.load(path + f"/results.{label}.npz", allow_pickle=True)
+        out = data[array_name]
+        data.close()
         return out
 
     return _get_results

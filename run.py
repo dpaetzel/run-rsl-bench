@@ -3,16 +3,16 @@ import os
 import tempfile
 
 import click
-import json
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
+import scoring
 import store
-from scoring import *
 from sklearn_xcsf import XCSF, bounds
+
 
 def file_digest(fname):
     with open(fname, 'rb') as f:
@@ -49,15 +49,6 @@ def log_plot(fname, fig):
     print(f"Storing plot in {fig_file}")
     fig.savefig(fig_file)
     mlflow.log_artifact(fig_file)
-
-
-# Copied from berbl.utils.
-def log_arrays(artifact_name, **arrays):
-    with tempfile.TemporaryDirectory(
-            prefix=f"{artifact_name}-") as tempdir_name:
-        fname = f"{tempdir_name}/{artifact_name}.npz"
-        np.savez(fname, **arrays)
-        mlflow.log_artifact(fname)
 
 
 @click.group()
@@ -247,7 +238,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                       f"rule experiences is {np.sum(experiences)} for "
                       f"{len(X)} training data points.")
 
-            log_arrays(f"results.{label}",
+            store.log_arrays(f"results.{label}",
                        y_pred=y_pred,
                        y_test_pred=y_test_pred,
                        scores=scores,
