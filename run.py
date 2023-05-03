@@ -253,13 +253,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                        scores=scores,
                        experiences=experiences)
 
-            return_condition = True
-            return_action = True
-            return_prediction = True
-            json_string = model.xcs_.json(return_condition, return_action,
-                                          return_prediction)
-            mlflow.log_text(json_string,
-                            artifact_file=f"population.{label}.json")
+            store.log_population(model, label)
 
             return y_pred, y_test_pred, scores
 
