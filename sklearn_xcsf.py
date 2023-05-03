@@ -279,13 +279,29 @@ class XCSF(BaseEstimator, RegressorMixin):
 
 
 def bounds(rules):
+    """
+    Parameters
+    ----------
+    rules : list of dict
+        A list of interval-based rules as created by `sklearn_xcsf.XCSF.rules_`
+        (i.e. as exported by `xcs.json(True, True, True)`).
+
+    Returns
+    -------
+    list, list
+        Two lists of NumPy arrays, the first one being lower bounds, the second
+        one being upper bounds.
+    """
     lowers = []
     uppers = []
     for rule in rules:
         cond = rule["condition"]
         if cond["type"] == "hyperrectangle_ubr":
-            lower = np.array(rule["condition"]["bound1"])
-            upper = np.array(rule["condition"]["bound2"])
+            bound1 = np.array(rule["condition"]["bound1"])
+            bound2 = np.array(rule["condition"]["bound2"])
+            lower = np.min([bound1, bound2], axis=0)
+            upper = np.max([bound1, bound2], axis=0)
+
         elif cond["type"] == "hyperrectangle_csr":
             center = np.array(rule["condition"]["center"])
             spread = np.array(rule["condition"]["spread"])
