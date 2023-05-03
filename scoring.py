@@ -42,11 +42,12 @@ def subsethood(l1, u1, l2, u2):
     else:
         # … and the first interval is degenerate that interval is still fully
         # contained in the second and subsethood is 1.0.
-        if volume(l1, u1) == 0:
+        v = volume(l1, u1)
+        if v == 0:
             return 1.0
         else:
             l, u = intersect
-            return volume(l, u) / volume(l1, u1)
+            return volume(l, u) / v
 
 
 def interval_similarity_mean(l1, u1, l2, u2):
