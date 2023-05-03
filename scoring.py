@@ -59,43 +59,57 @@ def interval_similarity_mean(l1, u1, l2, u2):
     return (ssh1 + ssh2) / 2.0
 
 
-def similarities(lowers, uppers, lowers_true, uppers_true):
-    K_true = len(lowers_true)
-    K = len(lowers)
+def similarities(lowers1, uppers1, lowers2, uppers2):
+    """
+    For each model interval in the first group, compute pairwise similarity
+    to all intervals in the second group.
 
-    vols_overlap = np.full((K_true, K), -1.0, dtype=float)
-    similarity = np.full((K_true, K), -1.0, dtype=float)
-    for i in range(K):
-        for j in range(K_true):
-            lu = intersection(l1=lowers[i],
-                              u1=uppers[i],
-                              l2=lowers_true[j],
-                              u2=uppers_true[j])
-            if lu is None:
-                vols_overlap[j, i] = 0.0
-            else:
-                vols_overlap[j, i] = volume(*lu)
-            # Note that we do not use vols_overlap currently.
+    Returns
+    -------
+    array of shape (len(lowers1), len(lowers2))
+    """
+    K1 = len(lowers1)
+    K2 = len(lowers2)
 
-            sim = interval_similarity_mean(l1=lowers[i],
-                                           u1=uppers[i],
-                                           l2=lowers_true[j],
-                                           u2=uppers_true[j])
-            similarity[j, i] = sim
+    similarity = np.full((K1, K2), -1.0, dtype=float)
+    for i in range(K1):
+        for j in range(K2):
+            similarity[i, j] = interval_similarity_mean(l1=lowers1[i],
+                                                        u1=uppers1[i],
+                                                        l2=lowers2[j],
+                                                        u2=uppers2[j])
     return similarity
 
 
-def score(lowers, uppers, lowers_true, uppers_true):
+def scores(lowers, uppers, lowers_true, uppers_true):
+    """
+    Ground truth–centric score.
 
-    similarity = similarities(lowers=lowers,
-                              uppers=uppers,
-                              lowers_true=lowers_true,
-                              uppers_true=uppers_true)
+    For each ground truth interval, compute similarities to all model intervals.
+    The overall score is a set of numbers, one per ground truth interval (the
+    highest score that was achieved for that).
 
-    similarity[similarity == -1.0] = 0.0
+    Returns
+    -------
+    list of length `len(lowers_true)`
+        List of scores, one per ground truth interval.
+    """
 
-    # The score of a solution rule is the highest similarity score value it
-    # received.
-    scores = np.max(similarity, axis=0)
+    similarity = similarities(lowers1=lowers,
+                              uppers1=uppers,
+                              lowers2=lowers_true,
+                              uppers2=uppers_true)
+
+    return _scores(similarities)
+
+
+def _scores(similarities):
+    similarities = similarities.copy()
+
+    similarities[similarities == -1.0] = 0.0
+
+    # Scores are composed of the highest similarity scores achieved for each
+    # ground truth interval.
+    scores = np.max(similarities, axis=0)
 
     return scores
