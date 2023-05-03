@@ -1,3 +1,4 @@
+import hashlib
 import os
 import tempfile
 
@@ -11,6 +12,14 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from scoring import *
 from sklearn_xcsf import XCSF, bounds
+
+def file_digest(fname):
+    with open(fname, 'rb') as f:
+        hash_object = hashlib.sha256()
+        # Avoid loading large files into memory by reading in chunks.
+        for chunk in iter(lambda: f.read(4096), b''):
+            hash_object.update(chunk)
+    return hash_object.hexdigest()
 
 
 def get_train(data):
@@ -148,13 +157,17 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
     with mlflow.start_run(run_name=run_name) as run:
         print(f"Run ID is {run.info.run_id}.")
 
-        # TODO Log data hash (i.e. npzfile hash)
-
         print(f"RNG seed is {seed}.")
         mlflow.log_param("seed", seed)
 
         data = np.load(npzfile)
-        mlflow.log_param("data.fname", npzfile)
+        mlflow.log_params({
+            "data.fname":
+            npzfile,
+            "data.sha256": file_digest(npzfile)
+            # Python 3.11 and onwards we can simply do:
+            # hashlib.file_digest(npzfile, digest="sha256")
+        })
 
         # Load train data.
         X, y = get_train(data)
