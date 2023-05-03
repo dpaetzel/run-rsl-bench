@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
+import store
 from scoring import *
 from sklearn_xcsf import XCSF, bounds
 
@@ -169,12 +170,15 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
             # hashlib.file_digest(npzfile, digest="sha256")
         })
 
-        # Load train data.
+        # Load and transform training data.
         X, y = get_train(data)
         scaler_X = MinMaxScaler(feature_range=(-1.0, 1.0))
         X = scaler_X.fit_transform(X).reshape(X.shape)
         scaler_y = StandardScaler()
         y = scaler_y.fit_transform(y.reshape(len(X), -1))
+
+        # Store training data transformers.
+        store.log_scalers(scaler_X=scaler_X, scaler_y=scaler_y)
 
         N, DX = X.shape
         mlflow.log_params({
@@ -185,7 +189,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
             "compact": compact,
         })
 
-        # Load test data.
+        # Load and transform test data.
         X_test, y_test = get_test(data)
         X_test = scaler_X.transform(X_test)
         y_test = scaler_y.transform(y_test)
