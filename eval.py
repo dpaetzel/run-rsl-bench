@@ -150,14 +150,6 @@ def eval(ctx, tracking_uri, exp_name):
 
     df = df.set_index("run_id")
 
-    df["scores_ubr"] = df["artifact_uri"].apply(get_results("ubr", "scores"))
-    df["scores_csr"] = df["artifact_uri"].apply(get_results("csr", "scores"))
-
-    df["scores_ubr_median"] = df["scores_ubr"].apply(np.median)
-    df["scores_csr_median"] = df["scores_csr"].apply(np.median)
-    df["scores_ubr_mean"] = df["scores_ubr"].apply(np.mean)
-    df["scores_csr_mean"] = df["scores_csr"].apply(np.mean)
-
     ctx.obj["df"] = df
     print(f"Sucessfully loaded {len(df)} runs with FINISHED status.")
 
