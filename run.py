@@ -227,12 +227,12 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                 f"mse.train.{label}": mse_train
             })
 
-            # Score solution relative to ground truth.
             lowers, uppers = bounds(model.rules_)
-            scores = score(lowers=lowers,
-                           uppers=uppers,
-                           lowers_true=lowers_true,
-                           uppers_true=uppers_true)
+            similarities = scoring.similarities(lowers, uppers, lowers_true,
+                                                uppers_true)
+            # Use `_scores` instead of `scores` to not compute `similarities`
+            # twice.
+            scores = scoring._scores(similarities)
 
             experiences = np.array([r["experience"] for r in model.rules_])
             if np.sum(experiences) < len(X):
@@ -240,15 +240,18 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                       f"rule experiences is {np.sum(experiences)} for "
                       f"{len(X)} training data points.")
 
-            store.log_arrays(f"results.{label}",
-                       y_pred=y_pred,
-                       y_test_pred=y_test_pred,
-                       scores=scores,
-                       experiences=experiences)
+            store.log_arrays(
+                f"results.{label}",
+                y_pred=y_pred,
+                y_test_pred=y_test_pred,
+                similarities=similarities,
+                scores=scores,
+                experiences=experiences,
+            )
 
             store.log_population(model, label)
 
-            return y_pred, y_test_pred, scores
+            return y_pred, y_test_pred
 
         model_ubr = XCSF(n_pop_size=pop_size,
                          n_iter=n_iter,
@@ -260,8 +263,8 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                          compaction=compact,
                          random_state=seed,
                          condition="hyperrectangle_csr")
-        y_pred_ubr, y_test_pred_ubr, scores_ubr = eval_model(model_ubr, "ubr")
-        y_pred_csr, y_test_pred_csr, scores_csr = eval_model(model_csr, "csr")
+        y_pred_ubr, y_test_pred_ubr = eval_model(model_ubr, "ubr")
+        y_pred_csr, y_test_pred_csr = eval_model(model_csr, "csr")
 
         if DX == 1:
             # Sort test data for more straightforward prediction plotting.
