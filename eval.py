@@ -11,8 +11,11 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+from tqdm import tqdm
+
 sns.set_palette("colorblind")
 pd.options.display.max_rows = 10000
+tqdm.pandas()
 
 pretty = {
     "params.data.DX": "$\mathcal{D}_\mathcal{X}$",
