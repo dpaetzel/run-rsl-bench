@@ -7,6 +7,7 @@ import mlflow
 import numpy as np
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.metrics import mean_squared_error
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 import scoring
@@ -201,7 +202,6 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
 
         def eval_model(model, label):
 
-            from sklearn.pipeline import make_pipeline
             pipe = make_pipeline(
                 MinMaxScaler(feature_range=(-1.0, 1.0)),
                 TransformedTargetRegressor(regressor=model,
