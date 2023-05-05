@@ -1,11 +1,11 @@
 import hashlib
 import os
-import tempfile
 
 import click
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
@@ -160,15 +160,8 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
             # hashlib.file_digest(npzfile, digest="sha256")
         })
 
-        # Load and transform training data.
+        # Load training data.
         X, y = get_train(data)
-        scaler_X = MinMaxScaler(feature_range=(-1.0, 1.0))
-        X = scaler_X.fit_transform(X).reshape(X.shape)
-        scaler_y = StandardScaler()
-        y = scaler_y.fit_transform(y.reshape(len(X), -1))
-
-        # Store training data transformers.
-        store.log_scalers(scaler_X=scaler_X, scaler_y=scaler_y)
 
         N, DX = X.shape
         mlflow.log_params({
@@ -179,19 +172,15 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
             "compact": compact,
         })
 
-        # Load and transform test data.
+        # Load test data.
         X_test, y_test = get_test(data)
-        X_test = scaler_X.transform(X_test)
-        y_test = scaler_y.transform(y_test)
 
         # Load ground truth.
         centers_true = data["centers"]
         spreads_true = data["spreads"]
         lowers_true = centers_true - spreads_true
         uppers_true = centers_true + spreads_true
-        # Transform ground truth.
-        lowers_true = scaler_X.transform(lowers_true)
-        uppers_true = scaler_X.transform(uppers_true)
+
         K = len(centers_true)
         mlflow.log_params({
             "data.K":
@@ -211,12 +200,18 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         })
 
         def eval_model(model, label):
-            model.fit(X, y)
+
+            from sklearn.pipeline import make_pipeline
+            pipe = make_pipeline(
+                MinMaxScaler(feature_range=(-1.0, 1.0)),
+                TransformedTargetRegressor(regressor=model,
+                                           transformer=StandardScaler()))
+            pipe.fit(X, y)
 
             print("Performing predictions on test data …")
-            y_test_pred = model.predict(X_test)
+            y_test_pred = pipe.predict(X_test)
             print("Performing predictions on training data …")
-            y_pred = model.predict(X)
+            y_pred = pipe.predict(X)
 
             mse_test = mean_squared_error(y_test_pred, y_test)
             print(f"MSE test ({label}):", mse_test)
@@ -227,14 +222,19 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                 f"mse.train.{label}": mse_train
             })
 
-            lowers, uppers = bounds(model.rules_)
+            # Store training data transformers.
+            store.log_scalers(scaler_X=pipe[0], scaler_y=pipe[1].transformer_)
+
+            lowers, uppers = bounds(pipe[1].regressor_.rules_,
+                                    transformer_X=pipe[0])
             similarities = scoring.similarities(lowers, uppers, lowers_true,
                                                 uppers_true)
             # Use `_scores` instead of `scores` to not compute `similarities`
             # twice.
             scores = scoring._scores(similarities)
 
-            experiences = np.array([r["experience"] for r in model.rules_])
+            experiences = np.array(
+                [r["experience"] for r in pipe[1].regressor_.rules_])
             if np.sum(experiences) < len(X):
                 print(f"WARNING: Training may have failed, the sum of "
                       f"rule experiences is {np.sum(experiences)} for "
@@ -249,7 +249,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                 experiences=experiences,
             )
 
-            store.log_population(model, label)
+            store.log_population(pipe[1].regressor_, label)
 
             return y_pred, y_test_pred
 

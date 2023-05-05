@@ -279,7 +279,7 @@ class XCSF(BaseEstimator, RegressorMixin):
         return rules
 
 
-def bounds(rules):
+def bounds(rules, transformer_X=None):
     """
     Extracts from the given rectangular condition–based population the lower and
     upper condition bounds.
@@ -295,6 +295,10 @@ def bounds(rules):
     rules : list of dict
         A list of interval-based rules as created by `sklearn_xcsf.XCSF.rules_`
         (i.e. as exported by `xcs.json(True, True, True)`).
+    transformer_X : object supporting `inverse_transform`
+        Apply the given transformer's inverse transformation to the resulting
+        lower and upper bounds (*after* they have been clipped to XCSF's input
+        space edges).
 
     Returns
     -------
@@ -326,4 +330,12 @@ def bounds(rules):
 
         lowers.append(lower)
         uppers.append(upper)
+
+    if transformer_X is not None:
+        lowers = transformer_X.inverse_transform(lowers)
+        uppers = transformer_X.inverse_transform(uppers)
+    else:
+        lowers = np.array(lowers)
+        uppers = np.array(lowers)
+
     return lowers, uppers
