@@ -43,6 +43,7 @@
           scipy
           scikit-learn
           toolz
+          tqdm
         ];
 
         meta = with pkgs.lib; {
