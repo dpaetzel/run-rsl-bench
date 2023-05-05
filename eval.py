@@ -136,12 +136,15 @@ def eval(ctx, tracking_uri, exp_name):
     df = mlflow.search_runs(experiment_names=[exp_name])
 
     df = df[df.status == "FINISHED"]
+
     df["params.data.K"] = df["params.data.K"].apply(int)
     df["params.data.DX"] = df["params.data.DX"].apply(int)
     df["params.data.N"] = df["params.data.N"].apply(int)
 
+    regex = re.compile(r"^.*/rsl-.*-.*-.*-(.*)\.npz")
+
     def data_seed(fname):
-        return int(re.match(r"^.*/rsl-.*-.*-.*-(.*)\.npz", fname)[1])
+        return int(regex.match(fname)[1])
 
     df["params.data.seed"] = df["params.data.fname"].apply(data_seed)
 
