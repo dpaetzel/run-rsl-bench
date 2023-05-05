@@ -154,8 +154,7 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
 
         data = np.load(npzfile)
         mlflow.log_params({
-            "data.fname":
-            npzfile,
+            "data.fname": npzfile,
             "data.sha256": file_digest(npzfile)
             # Python 3.11 and onwards we can simply do:
             # hashlib.file_digest(npzfile, digest="sha256")
@@ -190,6 +189,9 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
         spreads_true = data["spreads"]
         lowers_true = centers_true - spreads_true
         uppers_true = centers_true + spreads_true
+        # Transform ground truth.
+        lowers_true = scaler_X.transform(lowers_true)
+        uppers_true = scaler_X.transform(uppers_true)
         K = len(centers_true)
         mlflow.log_params({
             "data.K":
