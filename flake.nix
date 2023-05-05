@@ -4,11 +4,8 @@
     # system to avoid redundancy.
     nixos-config.url = "github:dpaetzel/nixos-config";
 
-    cmpbayes = {
-      type = "path";
-      inputs.nixos-config.follows = "nixos-config";
-      path = "/home/david/Code/cmpbayes";
-    };
+    cmpbayes.url = "github:dpaetzel/cmpbayes/add-beta-binomial";
+    cmpbayes.inputs.nixos-config.follows = "nixos-config";
 
     xcsf = {
       url = "github:dpaetzel/xcsf/flake";

@@ -22,14 +22,18 @@
         ]
       },
       "locked": {
-        "lastModified": 1683211582,
-        "narHash": "sha256-r7Ds8ha/LEOBY+TYMyURApuGBi+Xq5nllVVDPZ+7TJY=",
-        "path": "/home/david/Code/cmpbayes",
-        "type": "path"
+        "lastModified": 1683272066,
+        "narHash": "sha256-B9eedi6XWignyvhJygUkb8qwb0pXLNyrMTxQInXT1pA=",
+        "owner": "dpaetzel",
+        "repo": "cmpbayes",
+        "rev": "4bafe0a1d5a11359bbe191b29849128ef3507394",
+        "type": "github"
       },
       "original": {
-        "path": "/home/david/Code/cmpbayes",
-        "type": "path"
+        "owner": "dpaetzel",
+        "ref": "add-beta-binomial",
+        "repo": "cmpbayes",
+        "type": "github"
       }
     },
     "dSFMTSource": {
