@@ -9,9 +9,14 @@
       inputs.nixos-config.follows = "nixos-config";
       path = "/home/david/Code/cmpbayes";
     };
+
+    xcsf = {
+      url = "github:dpaetzel/xcsf/flake";
+      inputs.nixos-config.follows = "nixos-config";
+    };
   };
 
-  outputs = { self, nixos-config, cmpbayes }:
+  outputs = { self, nixos-config, cmpbayes, xcsf }:
     let
       nixpkgs = nixos-config.inputs.nixpkgs;
       system = "x86_64-linux";
@@ -28,6 +33,7 @@
 
         propagatedBuildInputs = with python.pkgs; [
           cmpbayes.defaultPackage."${system}"
+          xcsf.defaultPackage."${system}"
           click
           matplotlib
           mlflow
@@ -59,12 +65,11 @@
           export LD_LIBRARY_PATH="${
             pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc ]
           }:$LD_LIBRARY_PATH";
-          pip install xcsf pystan==3.4.0
         '';
 
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
-          pip install xcsf pystan==3.4.0
+          pip install pystan==3.4.0
         '';
 
       };
