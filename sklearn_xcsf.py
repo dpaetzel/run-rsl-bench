@@ -12,6 +12,11 @@ from sklearn.utils import check_random_state  # type: ignore
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 
+wiggle_room = 0.05
+X_min = -1.0 - wiggle_room
+X_max = 1.0 + wiggle_room
+
+
 def set_xcs_params(xcs, params):
     xcs.OMP_NUM_THREADS = params["OMP_NUM_THREADS"]
     xcs.POP_INIT = params["POP_INIT"]
@@ -145,12 +150,8 @@ class XCSF(BaseEstimator, RegressorMixin):
 
         xcs.action("integer")  # (dummy) integer actions
 
-        wiggle_room = 0.05
-        self.X_min_ = -1.0 - wiggle_room
-        self.X_max_ = 1.0 + wiggle_room
-
         N, DX = X.shape
-        vol_input_space = (self.X_max_ - self.X_min_)**DX
+        vol_input_space = (X_max - X_min)**DX
         # Assume a maximum of 1000 (arbitrary over-the-head number) cubic rules
         # to cover input space.
         vol_min_rule = vol_input_space / 1000.0
@@ -160,8 +161,8 @@ class XCSF(BaseEstimator, RegressorMixin):
         spread_min_rule_cubic = width_min_rule_cubic / 2.0
 
         args = {
-            "min": self.X_min_,  # minimum value of a lower bound
-            "max": self.X_max_,  # maximum value of an upper bound
+            "min": X_min,  # minimum value of a lower bound
+            "max": X_max,  # maximum value of an upper bound
             "spread_min": spread_min_rule_cubic,  # minimum initial spread
             "eta":
             0,  # disable gradient descent of centers towards matched input mean
@@ -199,11 +200,11 @@ class XCSF(BaseEstimator, RegressorMixin):
         # should be 0.0 due to standardization).
         pred = 0.0
         if self.condition == "hyperrectangle_ubr":
-            bound1 = [self.X_min_] * DX
-            bound2 = [self.X_max_] * DX
+            bound1 = [X_min] * DX
+            bound2 = [X_max] * DX
         elif self.condition == "hyperrectangle_csr":
-            bound1 = [(self.X_min_ + self.X_max_) / 2.0] * DX
-            bound2 = [(self.X_max_ - self.X_min_) / 2.0] * DX
+            bound1 = [(X_min + X_max) / 2.0] * DX
+            bound2 = [(X_max - X_min) / 2.0] * DX
         else:
             raise ValueError("Only hyperrectangle_{ubr,csr} are supported")
         classifier = {
@@ -280,6 +281,15 @@ class XCSF(BaseEstimator, RegressorMixin):
 
 def bounds(rules):
     """
+    Extracts from the given rectangular condition–based population the lower and
+    upper condition bounds.
+
+    Note that center-spread conditions are allowed to have lower and upper
+    bounds outside of the input space (e.g. if the center lies closer to the
+    edge of the input space than the spread's width). These are fixed by
+    clipping the resulting lower and upper bounds at the edges of the input
+    space.
+
     Parameters
     ----------
     rules : list of dict
@@ -310,6 +320,10 @@ def bounds(rules):
         else:
             raise NotImplementedError(
                 "bounds_ only exists for hyperrectangular conditions")
+
+        lower = np.clip(lower, X_min, X_max)
+        upper = np.clip(upper, X_min, X_max)
+
         lowers.append(lower)
         uppers.append(upper)
     return lowers, uppers
