@@ -13,6 +13,8 @@ import seaborn as sns
 
 from tqdm import tqdm
 
+import store
+
 sns.set_palette("colorblind")
 pd.options.display.max_rows = 10000
 tqdm.pandas()
@@ -143,13 +145,24 @@ def eval(ctx, tracking_uri, exp_name):
     df["params.data.K"] = df["params.data.K"].apply(int)
     df["params.data.DX"] = df["params.data.DX"].apply(int)
     df["params.data.N"] = df["params.data.N"].apply(int)
-    df["params.data.linear_model_mae"] = df["params.data.linear_model_mae"].apply(float)
-    df["params.data.linear_model_mse"] = df["params.data.linear_model_mse"].apply(float)
-    df["params.data.linear_model_rsquared"] = df["params.data.linear_model_rsquared"].apply(float)
-    df["params.data.rsl_model_mae"] = df["params.data.rsl_model_mae"].apply(float)
-    df["params.data.rsl_model_mse"] = df["params.data.rsl_model_mse"].apply(float)
-    df["params.data.rsl_model_rsquared"] = df["params.data.rsl_model_rsquared"].apply(float)
+    df["params.data.linear_model_mae"] = df[
+        "params.data.linear_model_mae"].apply(float)
+    df["params.data.linear_model_mse"] = df[
+        "params.data.linear_model_mse"].apply(float)
+    df["params.data.linear_model_rsquared"] = df[
+        "params.data.linear_model_rsquared"].apply(float)
+    df["params.data.rsl_model_mae"] = df["params.data.rsl_model_mae"].apply(
+        float)
+    df["params.data.rsl_model_mse"] = df["params.data.rsl_model_mse"].apply(
+        float)
+    df["params.data.rsl_model_rsquared"] = df[
+        "params.data.rsl_model_rsquared"].apply(float)
     df["params.pop_size"] = df["params.pop_size"].apply(int)
+
+    df["metrics.scores.ubr"] = df["artifact_uri"].apply(
+        store.load_array("ubr", "scores"))
+    df["metrics.scores.csr"] = df["artifact_uri"].apply(
+        store.load_array("csr", "scores"))
 
     regex = re.compile(r"^.*/rsl-.*-.*-.*-(.*)\.npz")
 
@@ -620,6 +633,67 @@ def durations(ctx):
     g.map(sns.histplot, "duration_min")
     plt.show()
 
+
+@eval.command()
+@click.pass_context
+def scores_per_task(ctx):
+    df = ctx.obj["df"]
+
+    index = ["params.data.DX", "params.data.K", "params.data.seed"]
+
+    variants = ["ubr", "csr"]
+
+    df = df.set_index(index)
+
+    df_metrics = pd.DataFrame()
+    for var in variants:
+        df_metrics[f"metrics.scores.max.{var}"] = df[
+            f"metrics.scores.{var}"].apply(max)
+        df_metrics[f"metrics.scores.min.{var}"] = df[
+            f"metrics.scores.{var}"].apply(min)
+        df_metrics[f"metrics.scores.mean.{var}"] = df[
+            f"metrics.scores.{var}"].apply(np.mean)
+        df_metrics[f"metrics.scores.median.{var}"] = df[
+            f"metrics.scores.{var}"].apply(np.median)
+
+    new_columns = [
+        tuple(col.rsplit(".", maxsplit=1)) for col in df_metrics.columns
+    ]
+    df_metrics.columns = pd.MultiIndex.from_tuples(new_columns)
+
+    df_metrics = df_metrics.stack().stack().reset_index().rename(
+        columns={
+            "level_3": "Algorithm",
+            "level_4": "Metric",
+            0: "Value"
+        } | pretty)
+
+    g = sns.FacetGrid(
+        data=df_metrics[df_metrics["Metric"] == metric],
+        col=pretty["params.data.DX"],
+        row=pretty["params.data.K"],
+        hue="Algorithm",
+        hue_order=["ubr", "csr"],
+        sharey=False,
+        margin_titles=True)
+
+    for m in ["max", "median", "min"]:
+        metric = f"metrics.scores.{m}"
+        g.data = df_metrics[df_metrics["Metric"] == metric]
+
+        g.map(
+            sns.pointplot,
+            pretty["params.data.seed"],
+            "Value",
+            order=np.sort(df_metrics[pretty["params.data.seed"]].unique()),
+            errorbar=("ci", 95),
+            capsize=0.3,
+            errwidth=2.0,
+        )
+
+    g.add_legend()
+    plt.savefig("plots/eval/scores-per-task.pdf")
+    plt.show()
 
 @eval.command()
 @click.pass_context
