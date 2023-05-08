@@ -143,6 +143,13 @@ def eval(ctx, tracking_uri, exp_name):
     df["params.data.K"] = df["params.data.K"].apply(int)
     df["params.data.DX"] = df["params.data.DX"].apply(int)
     df["params.data.N"] = df["params.data.N"].apply(int)
+    df["params.data.linear_model_mae"] = df["params.data.linear_model_mae"].apply(float)
+    df["params.data.linear_model_mse"] = df["params.data.linear_model_mse"].apply(float)
+    df["params.data.linear_model_rsquared"] = df["params.data.linear_model_rsquared"].apply(float)
+    df["params.data.rsl_model_mae"] = df["params.data.rsl_model_mae"].apply(float)
+    df["params.data.rsl_model_mse"] = df["params.data.rsl_model_mse"].apply(float)
+    df["params.data.rsl_model_rsquared"] = df["params.data.rsl_model_rsquared"].apply(float)
+    df["params.pop_size"] = df["params.pop_size"].apply(int)
 
     regex = re.compile(r"^.*/rsl-.*-.*-.*-(.*)\.npz")
 
