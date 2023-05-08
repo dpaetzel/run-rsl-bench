@@ -627,13 +627,17 @@ def mses_per_task(ctx):
             0: "Test MSE",
             "level_3": "Algorithm",
         } | pretty)
+    labels = {
+        "metrics.mse.test.ubr": "UBR",
+        "metrics.mse.test.csr": "CSR",
+    }
     df_metrics["Algorithm"] = df_metrics["Algorithm"].apply(
-        lambda s: s.replace("metrics.mse.test.", "").upper())
+        lambda s: labels[s])
     g = sns.FacetGrid(data=df_metrics,
                       col=pretty["params.data.DX"],
                       row=pretty["params.data.K"],
                       hue="Algorithm",
-                      hue_order=["UBR", "CSR"],
+                      hue_order=list(labels.values()),
                       sharey=False,
                       margin_titles=True)
     g.map(
