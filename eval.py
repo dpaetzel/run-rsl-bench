@@ -737,6 +737,57 @@ def mses_per_task(ctx):
 
 @eval.command()
 @click.pass_context
+def mses_per_task_with_lin(ctx):
+    df = ctx.obj["df"]
+
+    index = ["params.data.DX", "params.data.K", "params.data.seed"]
+    metrics = [
+        "metrics.mse.test.csr", "metrics.mse.test.ubr",
+        "params.data.linear_model_mse"
+    ]
+    df_metrics = df.reset_index()[index + metrics]
+    df_metrics = df_metrics.set_index(index).stack().reset_index().rename(
+        columns={
+            0: "Test MSE",
+            "level_3": "Algorithm",
+        } | pretty)
+    labels = {
+        "metrics.mse.test.ubr": "UBR",
+        "metrics.mse.test.csr": "CSR",
+        "params.data.linear_model_mse": "Linear"
+    }
+    df_metrics["Algorithm"] = df_metrics["Algorithm"].apply(
+        lambda s: labels[s])
+    g = sns.FacetGrid(data=df_metrics,
+                      col=pretty["params.data.DX"],
+                      row=pretty["params.data.K"],
+                      hue="Algorithm",
+                      hue_order=list(labels.values()),
+                      sharey=False,
+                      margin_titles=True)
+    g.map(
+        sns.pointplot,
+        pretty["params.data.seed"],
+        "Test MSE",
+        order=np.sort(df_metrics[pretty["params.data.seed"]].unique()),
+        errorbar=("ci", 95),
+        capsize=0.3,
+        errwidth=2.0,
+    )
+    g.add_legend()
+    plt.savefig("plots/eval/mses-per-task-with-lin.pdf")
+    plt.show()
+
+    import IPython
+    IPython.embed(banner1="")
+    import sys
+    sys.exit(1)
+    # consider running `globals().update(locals())` in the shell to fix not being
+    # able to put scopes around variables
+
+
+@eval.command()
+@click.pass_context
 def variances(ctx):
     df = ctx.obj["df"]
 
