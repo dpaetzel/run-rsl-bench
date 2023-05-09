@@ -40,3 +40,39 @@ cores):
 ```
 find "$DATA"/rest -name '*.npz' -print0 | parallel -0 --jobs 12.5% --progress --eta python run.py runmany --experiment-name="$exp_name" --startseed=0 --endseed=19 '{}'
 ```
+
+
+# Generating tables/figures
+
+
+## Generating data set summary statistics (Table 1 of the ECXAI paper)
+
+
+Assuming that the data set NPZ files lie *flatly* (i.e. no subdirectories) in
+`$DATA/`.
+
+
+First, enter a development shell.
+
+```
+nix develop
+```
+
+Then, to generate Table 1 of the paper (a summary statistics of the used data
+sets):
+
+
+```
+python eval.py datasets $DATA/
+```
+
+
+## Generating a point plot comparing test MSEs of XCSF with UBR and CSR matching function encodings (Figure 1 of the ECXAI paper)
+
+
+Assuming that when performing the runs (see above) the mlflow tracking URL was
+`$tracking_uri` and the experiment name `$exp_name`:
+
+```
+python  eval.py eval --exp-name="$exp_name" --tracking-uri="$tracking_uri" mses-per-task
+```
