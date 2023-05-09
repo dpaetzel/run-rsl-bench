@@ -1,35 +1,21 @@
 # Experiment runner and evaluation scripts
 
 
-… for TODO.
+… used for the paper *Towards Principled Synthetic Benchmarks for Explainable
+Rule Set Learning Algorithms* presented at the *Evolutionary Computing and
+Explainable Artificial Intelligence* (ECXAI) workshop taking place as part of
+the 2023 GECCO conference.
 
 
 # Running experiments
 
 
 Assuming that the data lies in `$DATA/` and is split into a single initial
-dataset `$DATA/….npz` and the remaining datasets which lie in `$DATA/rest/`.
-Adjust paths as necessary.
+dataset `$DATA/….npz` and the remaining datasets which lie in a subdirectory
+`$DATA/rest/`.  Adjust paths as necessary.
 
 
-## Without parallelization
-
-
-Works, but does not parallelize.
-
-```bash
-nix develop --command python run.py runmany --experiment-name=runmany --startseed=0 --endseed=19 "$DATA"/….npz
-for npz in "$DATA"/*; do
-    echo "$npz"
-    nix develop --command python run.py runmany --experiment-name=runmany --startseed=0 --endseed=19 "$npz"
-done
-```
-
-
-## With parallelization
-
-
-Instead: First, enter development shell.
+First, enter a development shell.
 
 ```
 nix develop
@@ -41,13 +27,16 @@ if many things try to initialize an experiment at once):
 
 ```
 export DATA=~/data-10N
-python run.py runmany --experiment-name=runmany --startseed=0 --endseed=19 "$DATA"/rsl-K5-DX1-N300-0.npz
+export exp_name="runmany-with-proper-score"
+python run.py runmany --experiment-name="$exp_name" --startseed=0 --endseed=19 "$DATA"/rsl-K5-DX1-N300-0.npz
 ```
+
 
 Finally, run the remaining sets in parallel (use `-print0` and `-0` in order to
-cope with spaces in file names):
-
+cope with spaces in file names). Since XCSF parallelizes internally by a factor
+of 8 per our config we set the number of jobs to `1/8 = 12.5%` of the number of
+cores):
 
 ```
-find "$DATA"/rest -name '*.npz' -print0 | parallel -0 python run.py runmany --experiment-name=runmany --startseed=0 --endseed=19 '{}'
+find "$DATA"/rest -name '*.npz' -print0 | parallel -0 --jobs 12.5% --progress --eta python run.py runmany --experiment-name="$exp_name" --startseed=0 --endseed=19 '{}'
 ```
