@@ -17,19 +17,14 @@
 import os
 import re
 
-import arviz as az
 import click
-import cmpbayes
-import json
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import pandas as pd
 import seaborn as sns
-
-from tqdm import tqdm
-
 import store
+from tqdm import tqdm
 
 sns.set_palette("colorblind")
 pd.options.display.max_rows = 10000
