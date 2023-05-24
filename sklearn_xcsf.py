@@ -113,7 +113,8 @@ class XCSF(BaseEstimator, RegressorMixin):
             theta_sub=50,
             ea_select_type="tournament",
             compaction=False,
-            condition="hyperrectangle_csr"):
+            condition="hyperrectangle_csr",
+            n_threads=8):
         self.random_state = random_state
 
         self.n_iter = n_iter
@@ -126,6 +127,7 @@ class XCSF(BaseEstimator, RegressorMixin):
         self.ea_select_type = ea_select_type
         self.compaction = compaction
         self.condition = condition
+        self.n_threads = n_threads
 
     def _init_xcs(self, X):
         random_state = check_random_state(self.random_state)
@@ -144,7 +146,8 @@ class XCSF(BaseEstimator, RegressorMixin):
             "EA_SUBSUMPTION": self.ea_subsumption,
             "THETA_SUB": self.theta_sub,
             "EA_SELECT_TYPE": self.ea_select_type,
-            "COMPACTION": self.compaction
+            "COMPACTION": self.compaction,
+            "OMP_NUM_THREADS" : self.n_threads,
         }
         set_xcs_params(xcs, params)
 

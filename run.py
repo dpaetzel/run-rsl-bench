@@ -73,7 +73,7 @@ def cli():
     pass
 
 
-defaults = dict(n_iter=100000, pop_size=200)
+defaults = dict(n_iter=100000, pop_size=200, n_threads=4)
 
 
 @cli.command()
@@ -104,13 +104,18 @@ defaults = dict(n_iter=100000, pop_size=200)
               type=bool,
               show_default=True,
               help="Whether to try to compact the final solution")
+@click.option("--n-threads",
+              default=defaults["n_threads"],
+              type=int,
+              show_default=True,
+              help="Number of threads to use while fitting XCSF")
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, required=True)
 @click.argument("NPZFILE")
 @click.pass_context
 def runmany(ctx, startseed, endseed, n_iter, pop_size, compact, run_name,
-            tracking_uri, experiment_name, npzfile):
+            n_threads, tracking_uri, experiment_name, npzfile):
 
     for seed in range(startseed, endseed + 1):
         ctx.invoke(run,
@@ -118,6 +123,7 @@ def runmany(ctx, startseed, endseed, n_iter, pop_size, compact, run_name,
                    n_iter=n_iter,
                    pop_size=pop_size,
                    compact=compact,
+                   n_threads=n_threads,
                    run_name=run_name,
                    tracking_uri=tracking_uri,
                    experiment_name=experiment_name,
@@ -146,11 +152,16 @@ def runmany(ctx, startseed, endseed, n_iter, pop_size, compact, run_name,
               type=bool,
               show_default=True,
               help="Whether to try to compact the final solution")
+@click.option("--n-threads",
+              default=defaults["n_threads"],
+              type=int,
+              show_default=True,
+              help="Number of threads to use while fitting XCSF")
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, required=True)
 @click.argument("NPZFILE")
-def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
+def run(seed, n_iter, pop_size, compact, n_threads, run_name, tracking_uri,
         experiment_name, npzfile):
     """
     Run XCSF on the data in NPZFILE, logging results using mlflow under the
@@ -273,12 +284,14 @@ def run(seed, n_iter, pop_size, compact, run_name, tracking_uri,
                          n_iter=n_iter,
                          compaction=compact,
                          random_state=seed,
-                         condition="hyperrectangle_ubr")
+                         condition="hyperrectangle_ubr",
+                         n_threads=n_threads)
         model_csr = XCSF(n_pop_size=pop_size,
                          n_iter=n_iter,
                          compaction=compact,
                          random_state=seed,
-                         condition="hyperrectangle_csr")
+                         condition="hyperrectangle_csr",
+                         n_threads=n_threads)
         y_pred_ubr, y_test_pred_ubr = eval_model(model_ubr, "ubr")
         y_pred_csr, y_test_pred_csr = eval_model(model_csr, "csr")
 
