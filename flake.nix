@@ -72,5 +72,9 @@
         '';
 
       };
+
+      devShell.submit = pkgs.mkShell {
+        buildInputs = with python.pkgs; [ python ];
+      };
     };
 }
