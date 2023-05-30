@@ -63,6 +63,8 @@
           export LD_LIBRARY_PATH="${
             pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc ]
           }:$LD_LIBRARY_PATH";
+
+          export PYTHONPATH=src:$PYTHONPATH
         '';
 
         postVenvCreation = ''
@@ -70,7 +72,6 @@
           pip install pystan==3.4.0
           pip install optuna
         '';
-
       };
 
       devShell.submit = pkgs.mkShell {
