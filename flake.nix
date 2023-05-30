@@ -68,6 +68,7 @@
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
           pip install pystan==3.4.0
+          pip install optuna
         '';
 
       };
