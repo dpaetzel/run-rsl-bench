@@ -23,12 +23,12 @@ from datetime import datetime
 from subprocess import PIPE, Popen
 
 
-def get_dirs():
+def get_dirs(experiment_name):
     job_dir = os.getcwd()
     datetime_ = datetime.now().isoformat()
     results_dir = f"{job_dir}/results/{datetime_}"
-    os.makedirs(f"{results_dir}/output", exist_ok=True)
-    os.makedirs(f"{results_dir}/jobs", exist_ok=True)
+    os.makedirs(f"{results_dir}/output/{experiment_name}", exist_ok=True)
+    os.makedirs(f"{results_dir}/jobs/{experiment_name}", exist_ok=True)
     return job_dir, results_dir
 
 
@@ -41,7 +41,7 @@ def submit(command, experiment_name, node="oc-compute03", mem="2G"):
         (just look at the code).
     """
 
-    job_dir, results_dir = get_dirs()
+    job_dir, results_dir = get_dirs(experiment_name)
 
     sbatch = "\n".join([
         f'#!/usr/bin/env bash',  #
