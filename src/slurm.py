@@ -32,7 +32,7 @@ def get_dirs():
     return job_dir, results_dir
 
 
-def submit(command, experiment_name, node="oc-compute03", mem="2G"):
+def submit(command, experiment_name, n_cpus=4, node="oc-compute03", mem_per_cpu="1G"):
     """
     Parameters
     ----------
@@ -47,8 +47,9 @@ def submit(command, experiment_name, node="oc-compute03", mem="2G"):
         f'#!/usr/bin/env bash',  #
         # Default Slurm settings.
         f'#SBATCH --nodelist={node}',
+        f'#SBATCH --cpus-per-task={n_cpus}',
         f'#SBATCH --time=1-00:00:00',
-        f'#SBATCH --mem={mem}',
+        f'#SBATCH --mem-per-cpu={mem_per_cpu}',
         f'#SBATCH --partition=cpu-prio',
         f'#SBATCH --output="{results_dir}/output/output-%A-%a.txt"',
         # Always use srun within sbatch.

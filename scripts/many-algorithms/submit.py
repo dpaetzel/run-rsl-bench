@@ -71,7 +71,7 @@ def optparams(n_threads, timeout, experiment_name, node, slurm_options, path):
             '--run-name=${{SLURM_ARRAY_JOB_ID}}_${{SLURM_ARRAY_TASK_ID}} '
             f'--n-threads={n_threads} '
             f'--timeout={timeout}')
-        submit(command, experiment_name, node=node, mem="2G")
+        submit(command, experiment_name, node=node, n_cpus=n_threads, mem_per_cpu="1G")
 
     if os.path.isfile(path):
         submit_npz(path)
