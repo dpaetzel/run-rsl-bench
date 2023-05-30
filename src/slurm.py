@@ -23,25 +23,42 @@ from datetime import datetime
 from subprocess import PIPE, Popen
 
 
-def get_dirs():
-    job_dir = os.getcwd()
+def get_dir_job():
+    return os.getcwd()
+
+
+def get_dir_results(job_dir):
     datetime_ = datetime.now().isoformat()
-    results_dir = f"{job_dir}/results/{datetime_}"
-    os.makedirs(f"{results_dir}/output", exist_ok=True)
-    os.makedirs(f"{results_dir}/jobs", exist_ok=True)
-    return job_dir, results_dir
+    dir_results = f"{job_dir}/results/{datetime_}"
+    return dir_results
 
 
-def submit(command, experiment_name, n_cpus=4, node="oc-compute03", mem_per_cpu="1G"):
+def init_dir_results(dir_results):
+    os.makedirs(f"{dir_results}/output", exist_ok=True)
+    os.makedirs(f"{dir_results}/jobs", exist_ok=True)
+    return dir_results
+
+
+def submit(command,
+           experiment_name,
+           n_cpus=4,
+           node="oc-compute03",
+           mem_per_cpu="1G",
+           dir_job=None,
+           dir_results=None):
     """
     Parameters
     ----------
     command : str
-        A format string that may use the fields `{job_dir}` and `{results_dir}`
+        A format string that may use the fields `{dir_job}` and `{dir_results}`
         (just look at the code).
     """
+    if dir_job is None:
+        dir_job = get_dir_job()
 
-    job_dir, results_dir = get_dirs()
+    if dir_results is None:
+        dir_results = get_dir_results(dir_job)
+    init_dir_results(dir_results)
 
     sbatch = "\n".join([
         f'#!/usr/bin/env bash',  #
@@ -51,7 +68,7 @@ def submit(command, experiment_name, n_cpus=4, node="oc-compute03", mem_per_cpu=
         f'#SBATCH --time=1-00:00:00',
         f'#SBATCH --mem-per-cpu={mem_per_cpu}',
         f'#SBATCH --partition=cpu-prio',
-        f'#SBATCH --output="{results_dir}/output/output-%A-%a.txt"',
+        f'#SBATCH --output="{dir_results}/output/output-%A-%a.txt"',
         # Always use srun within sbatch.
         # https://stackoverflow.com/a/53640511/6936216
         f"srun bash -c 'echo Running on $(hostname)'",
@@ -60,8 +77,8 @@ def submit(command, experiment_name, n_cpus=4, node="oc-compute03", mem_per_cpu=
             # environment or else there will likely be problems with GLIBC
             # versions.
             f'srun --export=NONE '
-            f'/run/current-system/sw/bin/nix develop "{job_dir}" --command '
-            f'{command.format(**dict(job_dir=job_dir, results_dir=results_dir))}\n'
+            f'/run/current-system/sw/bin/nix develop "{dir_job}" --command '
+            f'{command.format(**dict(dir_job=dir_job, dir_results=dir_results))}\n'
         )
     ])
     print(sbatch)
@@ -83,7 +100,7 @@ def submit(command, experiment_name, n_cpus=4, node="oc-compute03", mem_per_cpu=
     print(f"Job ID: {jobid}")
     print()
 
-    sbatch_dir = f"{results_dir}/jobs"
+    sbatch_dir = f"{dir_results}/jobs"
     os.makedirs(sbatch_dir, exist_ok=True)
     tmppath = pathlib.Path(tmp.name)
     fname = pathlib.Path(sbatch_dir, f"{jobid}.sbatch")

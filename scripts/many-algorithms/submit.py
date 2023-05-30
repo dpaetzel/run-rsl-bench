@@ -19,7 +19,8 @@ import os
 import time
 
 import click
-from slurm import submit
+import mlflow
+import slurm
 
 defaults = dict(n_iter=100000, n_threads=4, timeout=10)
 
@@ -61,17 +62,31 @@ def optparams(n_threads, timeout, experiment_name, node, slurm_options, path):
     if slurm_options is not None:
         raise NotImplementedError("Has to be implemented")
 
+    dir_job = slurm.get_dir_job()
+    dir_results = slurm.get_dir_results(dir_job)
+
+    tracking_uri = f"{dir_results}/mlruns"
+
     def submit_npz(npzfile):
         command = (
             # Note that we keep `{job_dir}` to be inserted by `submit`.
-            f'python {{job_dir}}/scripts/many-algorithms/run.py optparams "{npzfile}" '
-            # Note that we keep `{results_dir}` to be inserted by `submit`.
-            '--tracking-uri={results_dir}/mlruns '
+            f'python {{dir_job}}/scripts/many-algorithms/run.py optparams "{npzfile}" '
+            f'--tracking-uri={tracking_uri} '
             f'--experiment-name={experiment_name} '
             '--run-name=${{SLURM_ARRAY_JOB_ID}}_${{SLURM_ARRAY_TASK_ID}} '
             f'--n-threads={n_threads} '
             f'--timeout={timeout}')
-        submit(command, experiment_name, node=node, n_cpus=n_threads, mem_per_cpu="1G")
+        slurm.submit(command,
+                     experiment_name,
+                     node=node,
+                     n_cpus=n_threads,
+                     mem_per_cpu="1G",
+                     dir_job=dir_job,
+                     dir_results=dir_results)
+
+    print(f"Initializing mlflow experiment at tracking URI {tracking_uri} …")
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.create_experiment(experiment_name)
 
     if os.path.isfile(path):
         submit_npz(path)

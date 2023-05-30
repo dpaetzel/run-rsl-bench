@@ -75,7 +75,7 @@
       };
 
       devShell.submit = pkgs.mkShell {
-        buildInputs = [( python.withPackages(ps: [ps.click]) )];
+        buildInputs = [( python.withPackages(ps: [ps.click ps.mlflow]) )];
 
         # postShellHook is a Python thing (which is enabled, I think, by
         # venvShellHook?).
