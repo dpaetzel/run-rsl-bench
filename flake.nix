@@ -75,7 +75,13 @@
       };
 
       devShell.submit = pkgs.mkShell {
-        buildInputs = with python.pkgs; [ python ];
+        buildInputs = [( python.withPackages(ps: [ps.click]) )];
+
+        # postShellHook is a Python thing (which is enabled, I think, by
+        # venvShellHook?).
+        shellHook = ''
+          export PYTHONPATH=src:$PYTHONPATH
+        '';
       };
     };
 }
