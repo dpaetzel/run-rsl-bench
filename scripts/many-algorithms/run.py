@@ -347,7 +347,7 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name,
 
         ms = models(n_sample=len(X))
 
-        for label, model, params in ms[:-1]:
+        for label, model, params in ms:
             if not params:
                 print(f"Fitting {label} without tuning b/c no "
                       "hyperparameter distributions given …")
