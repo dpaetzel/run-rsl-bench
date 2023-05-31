@@ -349,7 +349,15 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name,
 
         for label, model, params in ms[:-1]:
             if not params:
-                model.fit(X, y)
+                print(f"Fitting {label} without tuning b/c no "
+                      "hyperparameter distributions given …")
+                from sklearn.model_selection import cross_val_score
+                scores = cross_val_score(model, X, y, cv=4, n_jobs=n_threads)
+                mlflow.log_dict({}, best_params_fname(label))
+                print(f"Best parameters for {label}: {{}}")
+                # As of 2023-05-31, `OptunaSearchCV.best_score_` is the mean of
+                # the cv test scores. We thus use the same for untuned models.
+                best_score_ = np.mean(scores)
             else:
                 print(f"Tuning {label} …")
                 search = tune_model(model=model,
@@ -357,7 +365,10 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name,
                                     param_distributions=params)
 
                 mlflow.log_dict(search.best_params_, best_params_fname(label))
-                mlflow.log_metric(f"{label}.best_score_", search.best_score_)
+                print(f"Best parameters for {label}: {search.best_params_}")
+                best_score_ = search.best_score_
+            mlflow.log_metric(f"{label}.best_score_", best_score_)
+            print(f"Best score for {label}: {best_score_}")
 
         # Remove cached transformers.
         rmtree(cachedir)
