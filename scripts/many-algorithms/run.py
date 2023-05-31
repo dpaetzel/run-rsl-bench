@@ -202,9 +202,9 @@ def models(n_sample):
                            validation_fraction=0.1),
             {
                 "size_layer1":
-                optuna.distributions.IntDistribution(10, 1000, step=100),
+                optuna.distributions.IntDistribution(10, 1010, step=100),
                 "size_layer2":
-                optuna.distributions.IntDistribution(10, 1000, step=100),
+                optuna.distributions.IntDistribution(10, 1010, step=100),
                 "solver":
                 optuna.distributions.CategoricalDistribution(["adam",
                                                               "lbfgs"]),
