@@ -282,6 +282,14 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name,
         # Load test data.
         X_test, y_test = get_test(data)
 
+        # Since `y` should have shape (N, 1) and some of the sklearn estimators
+        # used warn if such a shape is passed to them instead of (N,), we
+        # flatten.
+        y = y.ravel()
+        y_test = y_test.ravel()
+        assert len(y) == len(X)
+        assert len(y_test) == len(X_test)
+
         # Load ground truth.
         centers_true = data["centers"]
         K = len(centers_true)
