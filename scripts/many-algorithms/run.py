@@ -49,7 +49,7 @@ params_dt = {
     # ValueError: Some value(s) of y are negative which is not allowed for Poisson regression.
     # , "poisson"]),
     # TODO Probably set max max_depth input dimension dependent?
-    "max_depth": optuna.distributions.IntDistribution(1, 5),
+    "max_depth": optuna.distributions.IntDistribution(1, 20),
     "min_samples_split": optuna.distributions.IntDistribution(2, 5),
     "min_samples_leaf": optuna.distributions.IntDistribution(1, 5),
     # min_impurity_decrease
