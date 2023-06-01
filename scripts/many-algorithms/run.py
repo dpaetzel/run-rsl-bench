@@ -325,6 +325,8 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
         # the MinMaxScaler over and over again).
         cachedir = tempfile.mkdtemp()
 
+        scoring = "neg_mean_absolute_error"
+
         def tune_model(model, label, param_distributions):
             estimator = make_pipeline(model, cachedir)
 
@@ -344,7 +346,7 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
                 # random_state=1,
                 return_train_score=True,
                 # scoring="neg_mean_squared_error",
-                scoring="neg_mean_absolute_error",
+                scoring=scoring,
                 subsample=1.0,
                 # Only use timeout.
                 n_trials=None,
@@ -360,10 +362,15 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
 
         for label, model, params in ms:
             if not params:
-                print(f"Fitting {label} without tuning b/c no "
-                      "hyperparameter distributions given …")
+                print(
+                    f"Fitting {label} without tuning b/c no "
+                    "hyperparameter distributions given …"
+                )
                 from sklearn.model_selection import cross_val_score
-                scores = cross_val_score(model, X, y, cv=4, n_jobs=n_threads)
+
+                scores = cross_val_score(
+                    model, X, y, cv=4, n_jobs=n_threads, scoring=scoring
+                )
                 mlflow.log_dict({}, best_params_fname(label))
                 print(f"Best parameters for {label}: {{}}")
                 # As of 2023-05-31, `OptunaSearchCV.best_score_` is the mean of
