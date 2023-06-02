@@ -215,13 +215,15 @@ def models(n_sample):
                 "solver": optuna.distributions.CategoricalDistribution(
                     ["adam", "lbfgs"]
                 ),
-                # TODO
-                "alpha": optuna.distributions.FloatDistribution(1e-6, 1e-3),
-                "batch_size": optuna.distributions.IntDistribution(50, n_sample // 2),
-                # Only used when solver=sgd
-                # "learning_rate" : ["constant", "invscaling", "adaptive"],
-                "learning_rate_init": optuna.distributions.FloatDistribution(
-                    1e-5, 1e-2
+                # The default for alpha (the L2 regularization factor) is 1e-4.
+                "alpha": optuna.distributions.CategoricalDistribution(
+                    [1e-3, 5e-4, 3e-4, 1e-4, 5e-5, 3e-5, 1e-5]
+                ),
+                "batch_size": optuna.distributions.CategoricalDistribution(
+                    [16, 32, 64, 128, 256]
+                ),
+                "learning_rate_init": optuna.distributions.CategoricalDistribution(
+                    [1e-3, 5e-4, 3e-4, 1e-4, 5e-5, 3e-5, 1e-5]
                 ),
             },
         ),
