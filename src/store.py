@@ -25,8 +25,9 @@ import numpy as np
 
 def _artifact_dir(artifact_uri):
     tracking_uri = mlflow.get_tracking_uri()
-    assert tracking_uri.endswith("mlruns"), ("Valid tracking URIs should "
-                                             "have the suffix \"mlruns\"")
+    assert tracking_uri.endswith("mlruns"), (
+        "Valid tracking URIs should " 'have the suffix "mlruns"'
+    )
     assert artifact_uri.startswith("mlruns")
 
     path = tracking_uri.removesuffix("mlruns") + artifact_uri
@@ -55,13 +56,11 @@ def log_population(model, label):
     return_condition = True
     return_action = True
     return_prediction = True
-    json_string = model.xcs_.json(return_condition, return_action,
-                                  return_prediction)
+    json_string = model.xcs_.json(return_condition, return_action, return_prediction)
     mlflow.log_text(json_string, artifact_file=f"population.{label}.json")
 
 
 def load_population(label):
-
     def _get_results(artifact_uri):
         path = _artifact_dir(artifact_uri)
 
@@ -75,16 +74,13 @@ def load_population(label):
 
 # Copied from berbl.utils.
 def log_arrays(artifact_name, **arrays):
-    with tempfile.TemporaryDirectory(
-            prefix=f"{artifact_name}-") as tempdir_name:
+    with tempfile.TemporaryDirectory(prefix=f"{artifact_name}-") as tempdir_name:
         fname = f"{tempdir_name}/{artifact_name}.npz"
         np.savez(fname, **arrays)
         mlflow.log_artifact(fname)
 
 
-
 def load_array(label, array_name):
-
     def _get_results(artifact_uri):
         path = _artifact_dir(artifact_uri)
         # TODO Consider not hardcoding filenames twice
