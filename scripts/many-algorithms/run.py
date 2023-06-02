@@ -29,6 +29,7 @@ from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.linear_model import ARDRegression, BayesianRidge, Ridge
+from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
@@ -36,8 +37,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 
 
-def best_params_fname(label):
-    return f"{label}-best_params_.json"
+best_params_fname = "best_params.json"
 
 
 defaults = dict(n_iter=100000, n_threads=4, timeout=10)
@@ -267,135 +267,128 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
     print(f'Setting experiment name to "{experiment_name}".')
     mlflow.set_experiment(experiment_name)
 
-    # TODO One run per tuning would be better (at least wrt to mlflow ui)
+    data = np.load(npzfile)
 
-    print(f'Setting run name to "{run_name}".')
-    with mlflow.start_run(run_name=run_name) as run:
-        print(f"Run ID is {run.info.run_id}.")
+    # Load training and test data.
+    X, y = get_train(data)
+    X_test, y_test = get_test(data)
+    N, DX = X.shape
 
-        data = np.load(npzfile)
-        mlflow.log_params(
-            {
-                "data.fname": npzfile,
-                "data.sha256": file_digest(npzfile)
-                # Python 3.11 and onwards we can simply do:
-                # hashlib.file_digest(npzfile, digest="sha256")
-            }
+    # Since `y` should have shape (N, 1) and some of the sklearn estimators
+    # used warn if such a shape is passed to them instead of (N,), we
+    # flatten.
+    y = y.ravel()
+    y_test = y_test.ravel()
+    assert len(y) == len(X)
+    assert len(y_test) == len(X_test)
+
+    # Load ground truth.
+    centers_true = data["centers"]
+    K = len(centers_true)
+
+    # scoring="neg_mean_squared_error"
+    scoring = "neg_mean_absolute_error"
+
+    # Create a cache for transformers (this way, the pipeline does not fit
+    # the MinMaxScaler over and over again).
+    cachedir = tempfile.mkdtemp()
+
+    def tune_model(model, label, param_distributions):
+        estimator = make_pipeline(model, cachedir)
+
+        param_distributions = toolz.keymap(
+            lambda x: f"{regressor_name}__regressor__" + x, param_distributions
         )
 
-        mlflow.log_param("timeout", timeout)
-
-        # Load training data.
-        X, y = get_train(data)
-
-        N, DX = X.shape
-        mlflow.log_params(
-            {
-                "data.N": N,
-                "data.DX": DX,
-            }
+        search = OptunaSearchCV(
+            estimator,
+            param_distributions=param_distributions,
+            cv=4,
+            n_jobs=n_threads,
+            # Note that this is the RNG used by OptunaSearchCV itself (i.e.
+            # for subsampling data, which we don't use, as well as for
+            # sampling the parameter distributions), it does not get passed
+            # down to the estimators.
+            # random_state=1,
+            return_train_score=True,
+            scoring=scoring,
+            subsample=1.0,
+            # Only use timeout.
+            n_trials=None,
+            # Seconds.
+            timeout=timeout,
+            callbacks=[],
         )
+        search.fit(X, y)
 
-        # Load test data.
-        X_test, y_test = get_test(data)
+        return search
 
-        # Since `y` should have shape (N, 1) and some of the sklearn estimators
-        # used warn if such a shape is passed to them instead of (N,), we
-        # flatten.
-        y = y.ravel()
-        y_test = y_test.ravel()
-        assert len(y) == len(X)
-        assert len(y_test) == len(X_test)
+    ms = models(n_sample=len(X))
 
-        # Load ground truth.
-        centers_true = data["centers"]
-        K = len(centers_true)
+    for label, model, params in ms:
+        print(f'Setting run name to "{run_name}".')
+        with mlflow.start_run(run_name=run_name) as run:
+            print(f"Run ID is {run.info.run_id}.")
 
-        mlflow.log_params(
-            {
-                "data.K": K,
-                "data.linear_model_mse": data["linear_model_mse"],
-                "data.linear_model_mae": data["linear_model_mae"],
-                "data.linear_model_rsquared": data["linear_model_rsquared"],
-                "data.rsl_model_mse": data["rsl_model_mse"],
-                "data.rsl_model_mae": data["rsl_model_mae"],
-                "data.rsl_model_rsquared": data["rsl_model_rsquared"],
-            }
-        )
-
-        # Create a cache for transformers (this way, the pipeline does not fit
-        # the MinMaxScaler over and over again).
-        cachedir = tempfile.mkdtemp()
-
-        scoring = "neg_mean_absolute_error"
-
-        def tune_model(model, label, param_distributions):
-            estimator = make_pipeline(model, cachedir)
-
-            param_distributions = toolz.keymap(
-                lambda x: f"{regressor_name}__regressor__" + x, param_distributions
+            mlflow.log_params(
+                {
+                    "n_threads": n_threads,
+                    "timeout": timeout,
+                    "scoring": scoring,
+                    "algorithm": label,
+                    "data.fname": npzfile,
+                    "data.sha256": file_digest(npzfile),
+                    # Python 3.11 and onwards we can simply do:
+                    # hashlib.file_digest(npzfile, digest="sha256")
+                    "data.N": N,
+                    "data.DX": DX,
+                    "data.K": K,
+                    "data.linear_model_mse": data["linear_model_mse"],
+                    "data.linear_model_mae": data["linear_model_mae"],
+                    "data.linear_model_rsquared": data["linear_model_rsquared"],
+                    "data.rsl_model_mse": data["rsl_model_mse"],
+                    "data.rsl_model_mae": data["rsl_model_mae"],
+                    "data.rsl_model_rsquared": data["rsl_model_rsquared"],
+                }
             )
 
-            search = OptunaSearchCV(
-                estimator,
-                param_distributions=param_distributions,
-                cv=4,
-                n_jobs=n_threads,
-                # Note that this is the RNG used by OptunaSearchCV itself (i.e.
-                # for subsampling data, which we don't use, as well as for
-                # sampling the parameter distributions), it does not get passed
-                # down to the estimators.
-                # random_state=1,
-                return_train_score=True,
-                # scoring="neg_mean_squared_error",
-                scoring=scoring,
-                subsample=1.0,
-                # Only use timeout.
-                n_trials=None,
-                # Seconds.
-                timeout=timeout,
-                callbacks=[],
-            )
-            search.fit(X, y)
-
-            return search
-
-        ms = models(n_sample=len(X))
-
-        for label, model, params in ms:
             if not params:
                 print(
                     f"Fitting {label} without tuning b/c no "
                     "hyperparameter distributions given …"
                 )
-                from sklearn.model_selection import cross_val_score
 
                 scores = cross_val_score(
                     model, X, y, cv=4, n_jobs=n_threads, scoring=scoring
                 )
-                mlflow.log_dict({}, best_params_fname(label))
-                print(f"Best parameters for {label}: {{}}")
+
+                best_params_ = model.get_params()
                 n_trials_ = 1
                 # As of 2023-05-31, `OptunaSearchCV.best_score_` is the mean of
                 # the cv test scores. We thus use the same for untuned models.
                 best_score_ = np.mean(scores)
             else:
                 print(f"Tuning {label} …")
+
                 search = tune_model(
-                    model=model, label=label, param_distributions=params
+                    model=model,
+                    label=label,
+                    param_distributions=params,
                 )
 
-                mlflow.log_dict(search.best_params_, best_params_fname(label))
-                print(f"Best parameters for {label}: {search.best_params_}")
+                best_params_ = search.best_params_
                 best_score_ = search.best_score_
                 n_trials_ = search.n_trials_
-            mlflow.log_metric(f"{label}.best_score_", best_score_)
-            print(f"Best score for {label}: {best_score_}")
-            mlflow.log_metric(f"{label}.n_trials_", n_trials_)
-            print(f"Finished after {n_trials_} trials.")
 
-        # Remove cached transformers.
-        rmtree(cachedir)
+            mlflow.log_metric(f"n_trials", n_trials_)
+            print(f"Finished after {n_trials_} trials.")
+            mlflow.log_dict(best_params_, best_params_fname)
+            print(f"Best parameters for {label}: {best_params_}")
+            mlflow.log_metric(f"best_score", best_score_)
+            print(f"Best score for {label}: {best_score_}")
+
+    # Remove cached transformers.
+    rmtree(cachedir)
 
 
 if __name__ == "__main__":
