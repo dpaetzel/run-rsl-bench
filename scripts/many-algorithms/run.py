@@ -283,6 +283,8 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
             }
         )
 
+        mlflow.log_param("timeout", timeout)
+
         # Load training data.
         X, y = get_train(data)
 
@@ -373,6 +375,7 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
                 )
                 mlflow.log_dict({}, best_params_fname(label))
                 print(f"Best parameters for {label}: {{}}")
+                n_trials_ = 1
                 # As of 2023-05-31, `OptunaSearchCV.best_score_` is the mean of
                 # the cv test scores. We thus use the same for untuned models.
                 best_score_ = np.mean(scores)
@@ -385,8 +388,11 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
                 mlflow.log_dict(search.best_params_, best_params_fname(label))
                 print(f"Best parameters for {label}: {search.best_params_}")
                 best_score_ = search.best_score_
+                n_trials_ = search.n_trials_
             mlflow.log_metric(f"{label}.best_score_", best_score_)
             print(f"Best score for {label}: {best_score_}")
+            mlflow.log_metric(f"{label}.n_trials_", n_trials_)
+            print(f"Finished after {n_trials_} trials.")
 
         # Remove cached transformers.
         rmtree(cachedir)
