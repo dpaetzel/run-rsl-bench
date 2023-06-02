@@ -40,7 +40,7 @@ from sklearn.tree import DecisionTreeRegressor
 best_params_fname = "best_params.json"
 
 
-defaults = dict(n_iter=100000, n_threads=4, timeout=10)
+defaults = dict(n_iter=100000, timeout=10)
 
 params_dt = {
     "criterion": optuna.distributions.CategoricalDistribution(
@@ -236,13 +236,6 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--n-threads",
-    default=defaults["n_threads"],
-    type=int,
-    show_default=True,
-    help="Number of threads to use while fitting XCSF",
-)
-@click.option(
     "-t",
     "--timeout",
     default=defaults["timeout"],
@@ -254,7 +247,7 @@ def cli():
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, default="optparams")
 @click.argument("NPZFILE")
-def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfile):
+def optparams(timeout, run_name, tracking_uri, experiment_name, npzfile):
     """
 
     Note that we, for now, parallelize this at the level of optuna (and only
@@ -304,7 +297,9 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
             estimator,
             param_distributions=param_distributions,
             cv=4,
-            n_jobs=n_threads,
+            # This may suffer from GIL otherwise since multithreading is
+            # implemented via `threading`.
+            n_jobs=1,
             # Note that this is the RNG used by OptunaSearchCV itself (i.e.
             # for subsampling data, which we don't use, as well as for
             # sampling the parameter distributions), it does not get passed
@@ -332,7 +327,6 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
 
             mlflow.log_params(
                 {
-                    "n_threads": n_threads,
                     "timeout": timeout,
                     "scoring": scoring,
                     "algorithm": label,
@@ -358,9 +352,7 @@ def optparams(n_threads, timeout, run_name, tracking_uri, experiment_name, npzfi
                     "hyperparameter distributions given …"
                 )
 
-                scores = cross_val_score(
-                    model, X, y, cv=4, n_jobs=n_threads, scoring=scoring
-                )
+                scores = cross_val_score(model, X, y, cv=4, scoring=scoring)
 
                 best_params_ = model.get_params()
                 n_trials_ = 1
