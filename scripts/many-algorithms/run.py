@@ -286,6 +286,26 @@ def optparams(timeout, run_name, tracking_uri, experiment_name, npzfile):
     # the MinMaxScaler over and over again).
     cachedir = tempfile.mkdtemp()
 
+    def early_stopping(study, trial):
+        n_min_trials = 100
+        rate_window = 0.1
+
+        trials = study.trials
+        n_trials = len(trials)
+
+        if n_trials < n_min_trials:
+            return
+        else:
+            len_window = int(rate_window * n_trials)
+            window = trials[-len_window:]
+            scores_window = np.array(list(map(lambda x: x.values[0], window)))
+            if np.all(scores_window <= study.best_value):
+                print(
+                    "Stopping early due to no change in best score for "
+                    f"{len_window} trials."
+                )
+                study.stop()
+
     def tune_model(model, label, param_distributions):
         estimator = make_pipeline(model, cachedir)
 
@@ -312,7 +332,7 @@ def optparams(timeout, run_name, tracking_uri, experiment_name, npzfile):
             n_trials=None,
             # Seconds.
             timeout=timeout,
-            callbacks=[],
+            callbacks=[early_stopping],
         )
         search.fit(X, y)
 
