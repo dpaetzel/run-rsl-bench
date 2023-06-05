@@ -232,35 +232,10 @@ def models(n_sample):
 
 # Copied from berbl-exp.experiments.utils.
 @click.group()
-def cli():
-    pass
-
-
-@cli.command()
-@click.option(
-    "-t",
-    "--timeout",
-    default=defaults["timeout"],
-    type=int,
-    show_default=True,
-    help="Compute budget (in seconds) for the hyperparameter optimization",
-)
-@click.option("--run-name", type=str, default=None)
-@click.option("--tracking-uri", type=str, default="mlruns")
-@click.option("--experiment-name", type=str, default="optparams")
 @click.argument("NPZFILE")
-def optparams(timeout, run_name, tracking_uri, experiment_name, npzfile):
-    """
-
-    Note that we, for now, parallelize this at the level of optuna (and only
-    start a single Slurm job that uses a certain amount of cores).
-    """
-
-    print(f"Logging to mlflow tracking URI {tracking_uri}.")
-    mlflow.set_tracking_uri(tracking_uri)
-
-    print(f'Setting experiment name to "{experiment_name}".')
-    mlflow.set_experiment(experiment_name)
+@click.pass_context
+def cli(ctx, npzfile):
+    ctx.ensure_object(dict)
 
     data = np.load(npzfile)
 
@@ -280,6 +255,50 @@ def optparams(timeout, run_name, tracking_uri, experiment_name, npzfile):
     # Load ground truth.
     centers_true = data["centers"]
     K = len(centers_true)
+
+    ctx.obj["npzfile"] = npzfile
+    ctx.obj["data"] = data
+    ctx.obj["X"] = X
+    ctx.obj["y"] = y
+    ctx.obj["X_test"] = X_test
+    ctx.obj["y_test"] = y_test
+    ctx.obj["DX"] = DX
+    ctx.obj["K"] = K
+    ctx.obj["N"] = N
+
+
+@cli.command()
+@click.option(
+    "-t",
+    "--timeout",
+    default=defaults["timeout"],
+    type=int,
+    show_default=True,
+    help="Compute budget (in seconds) for the hyperparameter optimization",
+)
+@click.option("--run-name", type=str, default=None)
+@click.option("--tracking-uri", type=str, default="mlruns")
+@click.option("--experiment-name", type=str, default="optparams")
+@click.pass_context
+def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
+    """
+    TODO
+    """
+    npzfile = ctx.obj["npzfile"]
+    data = ctx.obj["data"]
+    X = ctx.obj["X"]
+    y = ctx.obj["y"]
+    X_test = ctx.obj["X_test"]
+    y_test = ctx.obj["y_test"]
+    DX = ctx.obj["DX"]
+    K = ctx.obj["K"]
+    N = ctx.obj["N"]
+
+    print(f"Logging to mlflow tracking URI {tracking_uri}.")
+    mlflow.set_tracking_uri(tracking_uri)
+
+    print(f'Setting experiment name to "{experiment_name}".')
+    mlflow.set_experiment(experiment_name)
 
     # scoring="neg_mean_squared_error"
     scoring = "neg_mean_absolute_error"
