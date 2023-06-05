@@ -393,9 +393,10 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
                     "hyperparameter distributions given …"
                 )
 
-                scores = cross_val_score(model, X, y, cv=4, scoring=scoring)
+                estimator = make_pipeline(model, cachedir)
+                scores = cross_val_score(estimator, X, y, cv=4, scoring=scoring)
 
-                best_params_ = model.get_params()
+                best_params_ = estimator.get_params()
                 n_trials_ = 1
                 # As of 2023-05-31, `OptunaSearchCV.best_score_` is the mean of
                 # the cv test scores. We thus use the same for untuned models.
