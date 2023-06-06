@@ -16,6 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
+import re
 import tempfile
 
 import joblib
@@ -23,14 +24,28 @@ import mlflow
 import numpy as np
 
 
-def _artifact_dir(artifact_uri):
-    tracking_uri = mlflow.get_tracking_uri()
-    assert tracking_uri.endswith("mlruns"), (
+def _artifact_dir(artifact_uri, tracking_uri=None):
+    """
+    This assumes that there is only a single occurrence of `mlruns` in both the
+    `artifact_uri` as well as the current `tracking_uri`.
+
+    Parameters
+    ----------
+    tracking_uri : str or None
+        If None, use the currently active tracking URI.
+    """
+
+    artifact_uri = re.compile("^(/.*)?mlruns/").sub("mlruns/", artifact_uri)
+
+    if tracking_uri is None:
+        tracking_uri = mlflow.get_tracking_uri()
+
+    assert tracking_uri.endswith("mlruns") or tracking_uri.endswith("mlruns/"), (
         "Valid tracking URIs should " 'have the suffix "mlruns"'
     )
-    assert artifact_uri.startswith("mlruns")
+    assert artifact_uri.startswith("mlruns/")
 
-    path = tracking_uri.removesuffix("mlruns") + artifact_uri
+    path = tracking_uri.removesuffix("/").removesuffix("mlruns") + artifact_uri
     return path
 
 
@@ -87,6 +102,25 @@ def load_array(label, array_name):
         data = np.load(path + f"/results.{label}.npz", allow_pickle=True)
         out = data[array_name]
         data.close()
+        return out
+
+    return _get_results
+
+
+def load_dict(dict_name, tracking_uri=None):
+    """
+    Parameters
+    ----------
+    tracking_uri : str or None
+        If None, use the currently active tracking URI.
+    """
+
+    def _get_results(artifact_uri):
+        path = _artifact_dir(artifact_uri, tracking_uri=tracking_uri)
+        # Open the file in read mode
+        with open(path + f"/{dict_name}.json", "r") as file:
+            # Load the contents of the file as JSON
+            out = json.load(file)
         return out
 
     return _get_results

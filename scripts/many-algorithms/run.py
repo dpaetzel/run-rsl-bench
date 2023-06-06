@@ -16,19 +16,24 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import tempfile
+import time
 from shutil import rmtree
 
 import click
 import mlflow
 import numpy as np
 import optuna.distributions
+import store
 import toolz
 from dataset import file_digest, get_test, get_train
+from mlflow.models.signature import infer_signature
+from mlflow.sklearn import log_model
 from optuna.integration import OptunaSearchCV
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.linear_model import ARDRegression, BayesianRidge, Ridge
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
@@ -36,9 +41,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 
-
 best_params_fname = "best_params.json"
-
 
 defaults = dict(n_iter=100000, timeout=10)
 
@@ -265,6 +268,7 @@ def cli(ctx, npzfile):
     ctx.obj["DX"] = DX
     ctx.obj["K"] = K
     ctx.obj["N"] = N
+    ctx.obj["sha256"] = file_digest(npzfile)
 
 
 @cli.command()
@@ -293,6 +297,7 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
     DX = ctx.obj["DX"]
     K = ctx.obj["K"]
     N = ctx.obj["N"]
+    sha256 = ctx.obj["sha256"]
 
     print(f"Logging to mlflow tracking URI {tracking_uri}.")
     mlflow.set_tracking_uri(tracking_uri)
@@ -372,7 +377,7 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
                     "scoring": scoring,
                     "algorithm": label,
                     "data.fname": npzfile,
-                    "data.sha256": file_digest(npzfile),
+                    "data.sha256": sha256,
                     # Python 3.11 and onwards we can simply do:
                     # hashlib.file_digest(npzfile, digest="sha256")
                     "data.N": N,
@@ -420,6 +425,141 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
             print(f"Best parameters for {label}: {best_params_}")
             mlflow.log_metric(f"best_score", best_score_)
             print(f"Best score for {label}: {best_score_}")
+
+    # Remove cached transformers.
+    rmtree(cachedir)
+
+
+@cli.command()
+@click.option("--run-name", type=str, default=None)
+@click.option("--tracking-uri", type=str, default="mlruns")
+@click.option("--experiment-name", type=str, default="runreps")
+@click.option("--tuning-uri", type=str, required=True)
+@click.option("--tuning-experiment-name", type=str, default="optparams")
+@click.pass_context
+def runbest(
+    ctx, run_name, tuning_uri, tuning_experiment_name, tracking_uri, experiment_name
+):
+    """
+    Read the best hyperparameter values for the algorithms considered from the
+    mlflow tracking URI given by --tuning-uri, then perform one run for each
+    algorithm using those hyperparameter values on data given by NPZFILE.
+    """
+
+    npzfile = ctx.obj["npzfile"]
+    data = ctx.obj["data"]
+    X = ctx.obj["X"]
+    y = ctx.obj["y"]
+    X_test = ctx.obj["X_test"]
+    y_test = ctx.obj["y_test"]
+    DX = ctx.obj["DX"]
+    K = ctx.obj["K"]
+    N = ctx.obj["N"]
+    sha256 = ctx.obj["sha256"]
+
+    print(f"Loading runs from {tuning_uri} …")
+    mlflow.set_tracking_uri(tuning_uri)
+    df = mlflow.search_runs(experiment_names=[tuning_experiment_name])
+
+    # Create a cache for transformers (this way, the pipeline does not fit
+    # the MinMaxScaler over and over again).
+    cachedir = tempfile.mkdtemp()
+
+    print(f"Setting mlflow tracking URI to {tracking_uri} …")
+    mlflow.set_tracking_uri(tracking_uri)
+
+    ms = models(n_sample=N)
+
+    for label, model, _ in ms:
+        print(f'Setting run name to "{run_name}".')
+        with mlflow.start_run(run_name=run_name) as run:
+            print(f"Run ID is {run.info.run_id}.")
+
+            print(f"Loading tuned hyperparameters for {label} …")
+            row = df[
+                (df["params.algorithm"] == label) & (df["params.data.sha256"] == sha256)
+            ]
+            assert (
+                not row.empty
+            ), f"Algorithm seems to not have been run on the file {npzfile}"
+            assert len(row) == 1, (
+                f"Algorithm was run multiple times on the file {npzfile}, "
+                "possibly ambiguous tuning results"
+            )
+            row = row.iloc[0]
+            best_params = store.load_dict("best_params", tracking_uri=tuning_uri)(
+                row["artifact_uri"]
+            )
+
+            if not any(map(lambda x: x.startswith("ttregressor__"), best_params)):
+                print(
+                    f"Legacy tuning detected, setting {label} "
+                    "hyperparameters before creating pipeline …"
+                )
+                model = model.set_params(**best_params)
+
+                print(f"Creating pipeline …")
+                estimator = make_pipeline(model, cachedir)
+            else:
+                print(f"Creating pipeline …")
+                estimator = make_pipeline(model, cachedir)
+
+                print(f"Setting {label} hyperparameters …")
+                estimator.set_params(**best_params)
+
+            mlflow.log_params(
+                {
+                    "algorithm": label,
+                    "data.fname": npzfile,
+                    "data.sha256": sha256,
+                    # Python 3.11 and onwards we can simply do:
+                    # hashlib.file_digest(npzfile, digest="sha256")
+                    "data.N": N,
+                    "data.DX": DX,
+                    "data.K": K,
+                    "data.linear_model_mse": data["linear_model_mse"],
+                    "data.linear_model_mae": data["linear_model_mae"],
+                    "data.linear_model_rsquared": data["linear_model_rsquared"],
+                    "data.rsl_model_mse": data["rsl_model_mse"],
+                    "data.rsl_model_mae": data["rsl_model_mae"],
+                    "data.rsl_model_rsquared": data["rsl_model_rsquared"],
+                }
+            )
+
+            print(f"Fitting {label} …")
+            t_start = time.time()
+            estimator.fit(X, y)
+            t_end = time.time()
+            duration_fit = t_end - t_start
+            print(f"Fitting {label} took {duration_fit} seconds.")
+
+            print(f"Performing predictions with {label} …")
+            y_pred = estimator.predict(X)
+            mae_train = mean_absolute_error(y_pred, y)
+            mse_train = mean_squared_error(y_pred, y)
+            y_test_pred = estimator.predict(X_test)
+            mae_test = mean_absolute_error(y_test_pred, y_test)
+            mse_test = mean_squared_error(y_test_pred, y_test)
+            mlflow.log_metrics(
+                {
+                    "mae.train": mae_train,
+                    "mse.train": mse_train,
+                    "mae.test": mae_test,
+                    "mse.test": mse_test,
+                    "duration_fit": duration_fit,
+                }
+            )
+
+            print(f"Storing predictions made by {label} …")
+            store.log_arrays(
+                f"pred",
+                y_pred=y_pred,
+                y_test_pred=y_test_pred,
+            )
+
+            print(f"Storing {label} estimator …")
+            signature = infer_signature(X, y_pred)
+            log_model(estimator, "estimator", signature=signature)
 
     # Remove cached transformers.
     rmtree(cachedir)
