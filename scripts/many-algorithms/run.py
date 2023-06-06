@@ -402,6 +402,7 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
                 scores = cross_val_score(estimator, X, y, cv=4, scoring=scoring)
 
                 best_params_ = {}
+                best_estimator_ = estimator.fit(X, y)
                 n_trials_ = 1
                 # As of 2023-05-31, `OptunaSearchCV.best_score_` is the mean of
                 # the cv test scores. We thus use the same for untuned models.
@@ -416,6 +417,7 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
                 )
 
                 best_params_ = search.best_params_
+                best_estimator_ = search.best_estimator_
                 best_score_ = search.best_score_
                 n_trials_ = search.n_trials_
 
@@ -425,6 +427,15 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
             print(f"Best parameters for {label}: {best_params_}")
             mlflow.log_metric(f"best_score", best_score_)
             print(f"Best score for {label}: {best_score_}")
+
+            # Since best_params_ only contains values for the hyperparameters
+            # that we're optimizing over and not all the hyperparameters, we
+            # also store the estimator itself (which then contains *all* the
+            # possible hyperparameters).
+            print(f"Storing best {label} estimator …")
+            y_pred = best_estimator_.predict(X)
+            signature = infer_signature(X, y_pred)
+            log_model(best_estimator_, "best_estimator", signature=signature)
 
     # Remove cached transformers.
     rmtree(cachedir)
