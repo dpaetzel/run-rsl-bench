@@ -40,10 +40,22 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.utils import check_random_state
 
 best_params_fname = "best_params.json"
 
 defaults = dict(n_iter=100000, timeout=10)
+
+
+def randseed(random_state: np.random.RandomState):
+    """
+    Sometimes we need to generate a new random seed from a `RandomState` due to
+    different APIs (e.g. NumPy wants the new RNG API, scikit-learn uses the
+    legacy NumPy `RandomState` API etc.).
+    """
+    # Highest possible seed is `2**32 - 1` for NumPy legacy generators.
+    return random_state.randint(2**32 - 1)
+
 
 params_dt = {
     "criterion": optuna.distributions.CategoricalDistribution(
@@ -280,11 +292,18 @@ def cli(ctx, npzfile):
     show_default=True,
     help="Compute budget (in seconds) for the hyperparameter optimization",
 )
+@click.option(
+    "--seed",
+    default=None,
+    type=int,
+    show_default=True,
+    help="Seed to initialize the algorithms' RNGs",
+)
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, default="optparams")
 @click.pass_context
-def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
+def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
     """
     TODO
     """
@@ -298,6 +317,9 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
     K = ctx.obj["K"]
     N = ctx.obj["N"]
     sha256 = ctx.obj["sha256"]
+
+    print(f"Initializing RNG from seed {seed} …")
+    random_state = check_random_state(seed)
 
     print(f"Logging to mlflow tracking URI {tracking_uri}.")
     mlflow.set_tracking_uri(tracking_uri)
@@ -350,7 +372,10 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
             # for subsampling data, which we don't use, as well as for
             # sampling the parameter distributions), it does not get passed
             # down to the estimators.
-            # random_state=1,
+            #
+            # Note that fixing the seed does *not* guarantee the same results
+            # because we end tuning based on time.
+            random_state=random_state,
             return_train_score=True,
             scoring=scoring,
             subsample=1.0,
@@ -371,8 +396,17 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
         with mlflow.start_run(run_name=run_name) as run:
             print(f"Run ID is {run.info.run_id}.")
 
+            print(f"Drawing and setting model RNG …")
+            seed_model = randseed(random_state)
+            try:
+                model.set_params(random_state=seed_model)
+                print(f"RNG seed for {label} set to {seed_model}.")
+            except ValueError:
+                print(f"Model {label} is deterministic, no seed set.")
+
             mlflow.log_params(
                 {
+                    "seed": seed,
                     "timeout": timeout,
                     "scoring": scoring,
                     "algorithm": label,
