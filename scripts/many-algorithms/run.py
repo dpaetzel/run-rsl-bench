@@ -27,7 +27,7 @@ import store
 import toolz
 from dataset import file_digest, get_test, get_train
 from mlflow.models.signature import infer_signature
-from mlflow.sklearn import log_model
+from mlflow.sklearn import load_model, log_model
 from optuna.integration import OptunaSearchCV
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
@@ -424,7 +424,7 @@ def optparams(ctx, timeout, run_name, tracking_uri, experiment_name):
             mlflow.log_metric(f"n_trials", n_trials_)
             print(f"Finished after {n_trials_} trials.")
             mlflow.log_dict(best_params_, best_params_fname)
-            print(f"Best parameters for {label}: {best_params_}")
+            print(f"Best hyperparameters for {label}: {best_params_}")
             mlflow.log_metric(f"best_score", best_score_)
             print(f"Best score for {label}: {best_score_}")
 
@@ -486,7 +486,7 @@ def runbest(
         with mlflow.start_run(run_name=run_name) as run:
             print(f"Run ID is {run.info.run_id}.")
 
-            print(f"Loading tuned hyperparameters for {label} …")
+            print(f"Loading tuning data for {label} …")
             row = df[
                 (df["params.algorithm"] == label) & (df["params.data.sha256"] == sha256)
             ]
@@ -498,25 +498,18 @@ def runbest(
                 "possibly ambiguous tuning results"
             )
             row = row.iloc[0]
-            best_params = store.load_dict("best_params", tracking_uri=tuning_uri)(
-                row["artifact_uri"]
+
+            print(f"Creating pipeline …")
+            estimator = make_pipeline(model, cachedir)
+
+            print(f"Loading estimator with best hyperparameters from tuning data …")
+            best_estimator = load_model(
+                f'{store._artifact_dir(row["artifact_uri"])}/best_estimator'
             )
-
-            if not any(map(lambda x: x.startswith("ttregressor__"), best_params)):
-                print(
-                    f"Legacy tuning detected, setting {label} "
-                    "hyperparameters before creating pipeline …"
-                )
-                model = model.set_params(**best_params)
-
-                print(f"Creating pipeline …")
-                estimator = make_pipeline(model, cachedir)
-            else:
-                print(f"Creating pipeline …")
-                estimator = make_pipeline(model, cachedir)
-
-                print(f"Setting {label} hyperparameters …")
-                estimator.set_params(**best_params)
+            print(f"Extracting hyperparameters from best estimator …")
+            params = best_estimator.get_params()
+            print(f"Setting hyperparameters of {label} …")
+            estimator.set_params(**params)
 
             mlflow.log_params(
                 {
