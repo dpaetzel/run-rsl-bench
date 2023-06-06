@@ -25,9 +25,39 @@ import slurm
 defaults = dict(n_iter=100000, timeout=10)
 
 
+def forall_npzs(path, code):
+    """
+    Parameters
+    ----------
+    path : str
+        Path to an NPZ file or a directory where NPZ files reside in.
+    code : callable
+        Will be called as `code(path)` if `path` is a file and `code(fpath)` for
+        each NPZ file with path `fpath` under `path` if `path` is a directory.
+    """
+    if os.path.isfile(path):
+        code(path)
+    elif os.path.isdir(path):
+        for fname in os.listdir(path):
+            fpath = os.path.join(path, fname)
+            if fname.endswith(".npz") and os.path.isfile(fpath):
+                code(fpath)
+                time.sleep(0.5)
+
+
 @click.group()
-def cli():
-    pass
+@click.pass_context
+def cli(ctx):
+    ctx.ensure_object(dict)
+
+    dir_job = slurm.get_dir_job()
+    dir_results = slurm.get_dir_results(dir_job)
+
+    tracking_uri = f"{dir_results}/mlruns"
+
+    ctx.obj["dir_job"] = dir_job
+    ctx.obj["dir_results"] = dir_results
+    ctx.obj["tracking_uri"] = tracking_uri
 
 
 @cli.command()
@@ -50,7 +80,8 @@ def cli():
     help=("Override Slurm options " "(for now, see file source for defaults)"),
 )
 @click.argument("PATH")
-def optparams(timeout, experiment_name, node, slurm_options, path):
+@click.pass_context
+def optparams(ctx, timeout, experiment_name, node, slurm_options, path):
     """
     If PATH is an NPZ file, then submit a single job for that file. If PATH is a
     directory, look at its immediate contents (i.e. non-recursively) and submit
@@ -59,10 +90,13 @@ def optparams(timeout, experiment_name, node, slurm_options, path):
     if slurm_options is not None:
         raise NotImplementedError("Has to be implemented")
 
-    dir_job = slurm.get_dir_job()
-    dir_results = slurm.get_dir_results(dir_job)
+    dir_job = ctx.obj["dir_job"]
+    dir_results = ctx.obj["dir_results"]
+    tracking_uri = ctx.obj["tracking_uri"]
 
-    tracking_uri = f"{dir_results}/mlruns"
+    print(f"Initializing mlflow experiment at tracking URI {tracking_uri} …")
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.create_experiment(experiment_name)
 
     def submit_npz(npzfile):
         command = (
@@ -87,18 +121,7 @@ def optparams(timeout, experiment_name, node, slurm_options, path):
             dir_results=dir_results,
         )
 
-    print(f"Initializing mlflow experiment at tracking URI {tracking_uri} …")
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.create_experiment(experiment_name)
-
-    if os.path.isfile(path):
-        submit_npz(path)
-    elif os.path.isdir(path):
-        for fname in os.listdir(path):
-            fpath = os.path.join(path, fname)
-            if fname.endswith(".npz") and os.path.isfile(fpath):
-                submit_npz(fpath)
-                time.sleep(0.5)
+    forall_npzs(path, submit_npz)
 
 
 if __name__ == "__main__":
