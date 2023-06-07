@@ -155,7 +155,7 @@ def optparams(ctx, timeout, seed, experiment_name, node, slurm_options, path):
     show_default=True,
     help="How many repetitions to perform",
 )
-@click.option("--experiment-name", type=str, default="optparams")
+@click.option("--experiment-name", type=str, default="runbest")
 @click.option("--tuning-uri", type=str, required=True)
 @click.option("--tuning-experiment-name", type=str, default="optparams")
 @click.option("--node", type=str, default="oc-compute03")
