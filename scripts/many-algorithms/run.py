@@ -485,7 +485,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
 )
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
-@click.option("--experiment-name", type=str, default="runreps")
+@click.option("--experiment-name", type=str, default="runbest")
 @click.option("--tuning-uri", type=str, required=True)
 @click.option("--tuning-experiment-name", type=str, default="optparams")
 @click.pass_context
@@ -528,6 +528,9 @@ def runbest(
 
     print(f"Initializing RNG from seed {seed} …")
     random_state = check_random_state(seed)
+
+    print(f'Setting experiment name to "{experiment_name}".')
+    mlflow.set_experiment(experiment_name)
 
     ms = models(n_sample=N)
 
