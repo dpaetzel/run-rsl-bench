@@ -39,19 +39,24 @@ def init_dir_results(dir_results):
     return dir_results
 
 
-def submit(command,
-           experiment_name,
-           n_cpus=4,
-           node="oc-compute03",
-           mem_per_cpu="1G",
-           dir_job=None,
-           dir_results=None):
+def submit(
+    command,
+    experiment_name,
+    n_cpus=4,
+    node="oc-compute03",
+    mem_per_cpu="1G",
+    dir_job=None,
+    dir_results=None,
+    n_reps=1,
+):
     """
     Parameters
     ----------
     command : str
         A format string that may use the fields `{dir_job}` and `{dir_results}`
         (just look at the code).
+    n_reps : int
+        Number of repetitions to perform (using a Slurm job array).
     """
     if dir_job is None:
         dir_job = get_dir_job()
@@ -60,27 +65,30 @@ def submit(command,
         dir_results = get_dir_results(dir_job)
     init_dir_results(dir_results)
 
-    sbatch = "\n".join([
-        f'#!/usr/bin/env bash',  #
-        # Default Slurm settings.
-        f'#SBATCH --nodelist={node}',
-        f'#SBATCH --cpus-per-task={n_cpus}',
-        f'#SBATCH --time=1-00:00:00',
-        f'#SBATCH --mem-per-cpu={mem_per_cpu}',
-        f'#SBATCH --partition=cpu-prio',
-        f'#SBATCH --output="{dir_results}/output/output-%A-%a.txt"',
-        # Always use srun within sbatch.
-        # https://stackoverflow.com/a/53640511/6936216
-        f"srun bash -c 'echo Running on $(hostname)'",
-        (
-            # Don't export environment variables but run Nix in a clean
-            # environment or else there will likely be problems with GLIBC
-            # versions.
-            f'srun --export=NONE '
-            f'/run/current-system/sw/bin/nix develop "{dir_job}" --command '
-            f'{command.format(**dict(dir_job=dir_job, dir_results=dir_results))}\n'
-        )
-    ])
+    sbatch = "\n".join(
+        [
+            f"#!/usr/bin/env bash",  #
+            # Default Slurm settings.
+            f"#SBATCH --nodelist={node}",
+            f"#SBATCH --cpus-per-task={n_cpus}",
+            f"#SBATCH --time=1-00:00:00",
+            f"#SBATCH --mem-per-cpu={mem_per_cpu}",
+            f"#SBATCH --partition=cpu-prio",
+            f'#SBATCH --output="{dir_results}/output/output-%A-%a.txt"',
+            f"#SBATCH --array=0-{n_reps-1}",
+            # Always use srun within sbatch.
+            # https://stackoverflow.com/a/53640511/6936216
+            f"srun bash -c 'echo Running on $(hostname)'",
+            (
+                # Don't export environment variables but run Nix in a clean
+                # environment or else there will likely be problems with GLIBC
+                # versions.
+                f"srun --export=NONE "
+                f'/run/current-system/sw/bin/nix develop "{dir_job}" --command '
+                f"{command.format(**dict(dir_job=dir_job, dir_results=dir_results))}\n"
+            ),
+        ]
+    )
     print(sbatch)
     print()
 
