@@ -476,6 +476,13 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
 
 
 @cli.command()
+@click.option(
+    "--seed",
+    default=None,
+    type=int,
+    show_default=True,
+    help="Seed to initialize the algorithms' RNGs",
+)
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, default="runreps")
@@ -483,7 +490,13 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
 @click.option("--tuning-experiment-name", type=str, default="optparams")
 @click.pass_context
 def runbest(
-    ctx, run_name, tuning_uri, tuning_experiment_name, tracking_uri, experiment_name
+    ctx,
+    seed,
+    run_name,
+    tuning_uri,
+    tuning_experiment_name,
+    tracking_uri,
+    experiment_name,
 ):
     """
     Read the best hyperparameter values for the algorithms considered from the
@@ -513,9 +526,14 @@ def runbest(
     print(f"Setting mlflow tracking URI to {tracking_uri} …")
     mlflow.set_tracking_uri(tracking_uri)
 
+    print(f"Initializing RNG from seed {seed} …")
+    random_state = check_random_state(seed)
+
     ms = models(n_sample=N)
 
     for label, model, _ in ms:
+        print()
+        print(f"Running for {label} …")
         print(f'Setting run name to "{run_name}".')
         with mlflow.start_run(run_name=run_name) as run:
             print(f"Run ID is {run.info.run_id}.")
@@ -538,16 +556,30 @@ def runbest(
 
             print(f"Loading estimator with best hyperparameters from tuning data …")
             best_estimator = load_model(
-                f'{store._artifact_dir(row["artifact_uri"])}/best_estimator'
+                f'{store._artifact_dir(row["artifact_uri"], tracking_uri=tuning_uri)}/best_estimator'
             )
             print(f"Extracting hyperparameters from best estimator …")
             params = best_estimator.get_params()
             print(f"Setting hyperparameters of {label} …")
             estimator.set_params(**params)
 
+            print(f"Drawing and setting model RNG …")
+            seed_model = randseed(random_state)
+            try:
+                estimator.set_params(
+                    **{f"{regressor_name}__regressor__random_state": seed_model}
+                )
+                print(f"RNG seed for {label} set to {seed_model}.")
+            except ValueError:
+                print(f"Model {label} is deterministic, no seed set.")
+
             mlflow.log_params(
                 {
                     "algorithm": label,
+                    # Seed used to generate the seeds for the models.
+                    "seed": seed,
+                    # Seed used for this specific model.
+                    "seed_model": seed_model,
                     "data.fname": npzfile,
                     "data.sha256": sha256,
                     # Python 3.11 and onwards we can simply do:
@@ -587,6 +619,7 @@ def runbest(
                     "duration_fit": duration_fit,
                 }
             )
+            print(f"Achieved a test MAE of {mae_test}.")
 
             print(f"Storing predictions made by {label} …")
             store.log_arrays(
