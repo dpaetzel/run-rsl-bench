@@ -41,7 +41,6 @@ def init_dir_results(dir_results):
 
 def submit(
     command,
-    experiment_name,
     n_cpus=4,
     node="oc-compute03",
     mem_per_cpu="1G",

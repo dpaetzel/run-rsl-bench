@@ -210,7 +210,6 @@ def runbest(
         )
         slurm.submit(
             command,
-            experiment_name,
             node=node,
             # We're hardcoding 4 CPUs for now; some sklearn estimators seem to
             # profit from parallel processing.
