@@ -400,11 +400,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1683269936,
-        "narHash": "sha256-k2tQdsS+8lfPw5YNOkD+So8LzMljA3lU0KtAifgAUxY=",
+        "lastModified": 1686923595,
+        "narHash": "sha256-F8ix2/Jp/yWVmilQGPtjFeQHhBuQpk34lAxHTd68B4M=",
         "owner": "dpaetzel",
         "repo": "xcsf",
-        "rev": "24d3f06fcdcff74bd46805f8f484a76822deedf8",
+        "rev": "4af21ca479f2659af66dab01e9084274a2ca83b9",
         "type": "github"
       },
       "original": {
