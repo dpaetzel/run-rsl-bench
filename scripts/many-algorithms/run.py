@@ -41,6 +41,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
+from sklearn_xcsf import XCSF
 
 best_params_fname = "best_params.json"
 best_params_all_fname = "best_params_all.json"
@@ -211,13 +212,43 @@ def models(n_sample):
             },
         ),
         (
+            "XCSFSmall",
+            XCSF(n_threads=4, condition="csr", ea_select_type="tournament"),
             {
-                # TODO Maybe hyperparameters here
+                # Population size is deliberately small here.
+                "n_pop_size": optuna.distributions.IntDistribution(100, 1000, step=100),
+                "n_iter": optuna.distributions.IntDistribution(
+                    10_000, 500_000, step=10_000
+                ),
+                "spread_min": optuna.distributions.FloatDistribution(
+                    0.05, 1.0, step=0.05
+                ),
+                "epsilon0": optuna.distributions.FloatDistribution(
+                    0.001, 0.1, step=0.001
+                ),
+                "beta": optuna.distributions.FloatDistribution(0.01, 0.2, step=0.01),
+                "nu": optuna.distributions.FloatDistribution(1.0, 10.0, step=1.0),
             },
         ),
         (
+            "XCSF",
+            XCSF(n_threads=4, condition="csr", ea_select_type="tournament"),
             {
-                # TODO Maybe hyperparameters here
+                # Population size is deliberately small here.
+                "n_pop_size": optuna.distributions.IntDistribution(
+                    1000, 10000, step=1000
+                ),
+                "n_iter": optuna.distributions.IntDistribution(
+                    10_000, 500_000, step=10_000
+                ),
+                "spread_min": optuna.distributions.FloatDistribution(
+                    0.05, 1.0, step=0.05
+                ),
+                "epsilon0": optuna.distributions.FloatDistribution(
+                    0.001, 0.1, step=0.001
+                ),
+                "beta": optuna.distributions.FloatDistribution(0.01, 0.2, step=0.01),
+                "nu": optuna.distributions.FloatDistribution(1.0, 10.0, step=1.0),
             },
         ),
         (
