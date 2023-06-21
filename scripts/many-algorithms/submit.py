@@ -122,7 +122,6 @@ def optparams(ctx, timeout, seed, experiment_name, node, slurm_options, path):
         )
         slurm.submit(
             command,
-            experiment_name,
             node=node,
             # Optuna cannot parallelize properly to multiple CPUs (due to GIL)
             # but many sklearn estimators actually can. Also, we don't want to
