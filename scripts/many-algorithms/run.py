@@ -43,8 +43,16 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
 
 best_params_fname = "best_params.json"
+best_params_all_fname = "best_params_all.json"
 
 defaults = dict(n_iter=100000, timeout=10)
+
+
+def _non_primitive_to_string(obj):
+    if isinstance(obj, (int, float, str, bool)):
+        return obj
+    else:
+        return str(obj)
 
 
 def randseed(random_state: np.random.RandomState):
@@ -454,18 +462,24 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
             mlflow.log_metric(f"n_trials", n_trials_)
             print(f"Finished after {n_trials_} trials.")
             mlflow.log_dict(best_params_, best_params_fname)
+            # This is meant mostly for later sanity checking.  Since
+            # best_params_ only contains values for the hyperparameters that
+            # we're optimizing over and not all the hyperparameters of the
+            # estimator, we also store all the hyperparameters in another dict
+            # (with non-primitives converted to strings). Note that we do not
+            # store the estimator itself to be more light on disk space (some of
+            # the estimators are in the range of tens of MBs if serialized fully
+            # and we perform a lot of runs); also, future sklearn versions may
+            # not be able to deal with estimators serialized like this anyway.
+            # And: Some estimators are not sklearn-style serializable without
+            # additional effort (looking at you, XCSF).
+            best_params_all_ = toolz.valmap(
+                _non_primitive_to_string, best_estimator_.get_params()
+            )
+            mlflow.log_dict(best_params_all_, best_params_all_fname)
             print(f"Best hyperparameters for {label}: {best_params_}")
             mlflow.log_metric(f"best_score", best_score_)
             print(f"Best score for {label}: {best_score_}")
-
-            # Since best_params_ only contains values for the hyperparameters
-            # that we're optimizing over and not all the hyperparameters, we
-            # also store the estimator itself (which then contains *all* the
-            # possible hyperparameters).
-            print(f"Storing best {label} estimator …")
-            y_pred = best_estimator_.predict(X)
-            signature = infer_signature(X, y_pred)
-            log_model(best_estimator_, "best_estimator", signature=signature)
 
     # Remove cached transformers.
     rmtree(cachedir)
