@@ -22,6 +22,7 @@
 import json
 
 import numpy as np
+import toolz
 import xcsf
 from sklearn.base import BaseEstimator, RegressorMixin  # type: ignore
 from sklearn.metrics import mean_absolute_error
@@ -32,6 +33,10 @@ from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 wiggle_room = 0.05
 X_min = -1.0 - wiggle_room
 X_max = 1.0 + wiggle_room
+
+
+def fromNone(val, default):
+    return default if val is None else val
 
 
 def set_xcs_params(xcs, params):
@@ -119,75 +124,212 @@ class XCSF(BaseEstimator, RegressorMixin):
 
     def __init__(
         self,
-        random_state,
-        n_iter=1000,
-        n_pop_size=200,
-        # TODO expose other important ones here as well (epsilon0 etc.)
-        nu=5,
-        p_crossover=0.8,
-        theta_ea=50,
-        ea_subsumption=False,
-        theta_sub=50,
-        ea_select_type="tournament",
-        compaction=False,
-        condition="hyperrectangle_csr",
-        n_threads=8,
+        random_state=None,
+        # Note that we intentionally keep the same ordering here as in the wiki
+        # at
+        # https://github.com/rpreen/xcsf/wiki/Python-Library-Usage#initialising-general-parameters
+        n_threads=None,
+        # POP_INIT
+        n_pop_size=None,
+        n_iter=None,
+        # PERF_TRIALS
+        # LOSS_FUNC
+        # HUBER_DELTA
+        epsilon0=None,
+        alpha=None,
+        nu=None,
+        beta=None,
+        ea_delta=None,
+        ea_theta_del=None,
+        # INIT_FITNESS
+        # INIT_ERROR
+        # M_PROBATION
+        # STATEFUL
+        ea_set_subsumption=None,
+        ea_theta_sub=None,
+        ea_compaction=None,
+        # TELETRANSPORTATION
+        # GAMMA
+        # P_EXPLORE
+        ea_select_type=None,
+        ea_select_size=None,
+        ea_theta_ea=None,
+        ea_lambda=None,
+        ea_p_crossover=None,
+        ea_err_reduc=None,
+        ea_fit_reduc=None,
+        ea_subsumption=None,
+        # EA_PRED_RESET
+        condition="csr",
+        spread_min=None,
     ):
+        """
+        Parameters
+        ----------
+        """
         self.random_state = random_state
 
-        self.n_iter = n_iter
-        self.n_pop_size = n_pop_size
-        self.nu = nu
-        self.p_crossover = p_crossover
-        self.theta_ea = theta_ea
-        self.ea_subsumption = ea_subsumption
-        self.theta_sub = theta_sub
-        self.ea_select_type = ea_select_type
-        self.compaction = compaction
-        self.condition = condition
         self.n_threads = n_threads
+        # POP_INIT
+        self.n_pop_size = n_pop_size
+        self.n_iter = n_iter
+        # PERF_TRIALS
+        # LOSS_FUNC
+        # HUBER_DELTA
+        self.epsilon0 = epsilon0
+        self.alpha = alpha
+        self.nu = nu
+        self.beta = beta
+        self.ea_delta = ea_delta
+        self.ea_theta_del = ea_theta_del
+        # INIT_FITNESS
+        # INIT_ERROR
+        # M_PROBATION
+        # STATEFUL
+        self.ea_set_subsumption = ea_set_subsumption
+        self.ea_theta_sub = ea_theta_sub
+        self.ea_compaction = ea_compaction
+        # TELETRANSPORTATION
+        # GAMMA
+        # P_EXPLORE
+        self.ea_select_type = ea_select_type
+        self.ea_select_size = ea_select_size
+        self.ea_theta_ea = ea_theta_ea
+        self.ea_lambda = ea_lambda
+        self.ea_p_crossover = ea_p_crossover
+        self.ea_err_reduc = ea_err_reduc
+        self.ea_fit_reduc = ea_fit_reduc
+        self.ea_subsumption = ea_subsumption
+        # EA_PRED_RESET
 
-    def _init_xcs(self, X):
+        self.condition = condition
+        self.spread_min = spread_min
+
+    def _parse_params(self, DX):
+        """
+        Given an input space dimension, parse the parameters, replacing `None`s
+        with the default parameter given by the XCSF library.
+        """
+        params_default = default_xcs_params(DX)
+
+        # Extract defaults for each of input parameters.
+        self.n_threads_ = fromNone(self.n_threads, params_default["OMP_NUM_THREADS"])
+        # POP_INIT
+        self.n_pop_size_ = fromNone(self.n_pop_size, params_default["POP_SIZE"])
+        self.n_iter_ = fromNone(self.n_iter, params_default["MAX_TRIALS"])
+        # PERF_TRIALS
+        # LOSS_FUNC
+        # HUBER_DELTA
+        self.epsilon0_ = fromNone(self.epsilon0, params_default["E0"])
+        self.alpha_ = fromNone(self.alpha, params_default["ALPHA"])
+        self.nu_ = fromNone(self.nu, params_default["NU"])
+        self.beta_ = fromNone(self.beta, params_default["BETA"])
+        self.ea_delta_ = fromNone(self.ea_delta, params_default["DELTA"])
+        self.ea_theta_del_ = fromNone(self.ea_theta_del, params_default["THETA_DEL"])
+        # INIT_FITNESS
+        # INIT_ERROR
+        # M_PROBATION
+        # STATEFUL
+        self.ea_set_subsumption_ = fromNone(
+            self.ea_set_subsumption, params_default["SET_SUBSUMPTION"]
+        )
+        self.ea_theta_sub_ = fromNone(self.ea_theta_sub, params_default["THETA_SUB"])
+        self.ea_compaction_ = fromNone(self.ea_compaction, params_default["COMPACTION"])
+        # TELETRANSPORTATION
+        # GAMMA
+        # P_EXPLORE
+        self.ea_select_type_ = fromNone(
+            self.ea_select_type, params_default["EA_SELECT_TYPE"]
+        )
+        self.ea_select_size_ = fromNone(
+            self.ea_select_size, params_default["EA_SELECT_SIZE"]
+        )
+        self.ea_theta_ea_ = fromNone(self.ea_theta_ea, params_default["THETA_EA"])
+        self.ea_lambda_ = fromNone(self.ea_lambda, params_default["LAMBDA"])
+        self.ea_p_crossover_ = fromNone(
+            self.ea_p_crossover, params_default["P_CROSSOVER"]
+        )
+        self.ea_err_reduc_ = fromNone(self.ea_err_reduc, params_default["ERR_REDUC"])
+        self.ea_fit_reduc_ = fromNone(self.ea_fit_reduc, params_default["FIT_REDUC"])
+        self.ea_subsumption_ = fromNone(
+            self.ea_subsumption, params_default["EA_SUBSUMPTION"]
+        )
+        # EA_PRED_RESET
+
+        # Do a very rough check of whether we misspelled any of the boilerplate.
+        # Better than nothing, I guess.
+        for k_ in toolz.keyfilter(lambda x: x.endswith("_"), self.__dict__):
+            k = k_.removesuffix("_")
+            v_ = self.__dict__[k_]
+            v = self.__dict__[k]
+            assert (v is None and v_ is not None) or (v == v_)
+
+        self.condition_ = "hyperrectangle_" + self.condition
+        self.spread_min_ = self.spread_min
+
+    def _init_xcs(self, DX):
         random_state = check_random_state(self.random_state)
 
-        xcs = xcsf.XCS(X.shape[1], 1, 1)  # only 1 (dummy) action
+        xcs = xcsf.XCS(DX, 1, 1)  # only 1 (dummy) action
         seed = random_state.randint(np.iinfo(np.int32).max)
         print("XCSF seed:", seed)
         xcs.seed(seed)
 
-        params = default_xcs_params(X.shape[1]) | {
-            "MAX_TRIALS": self.n_iter,
-            "POP_SIZE": self.n_pop_size,
-            "NU": self.nu,
-            "P_CROSSOVER": self.p_crossover,
-            "THETA_EA": self.theta_ea,
-            "EA_SUBSUMPTION": self.ea_subsumption,
-            "THETA_SUB": self.theta_sub,
-            "EA_SELECT_TYPE": self.ea_select_type,
-            "COMPACTION": self.compaction,
-            "OMP_NUM_THREADS": self.n_threads,
-        }
-        set_xcs_params(xcs, params)
+        xcs.OMP_NUM_THREADS = self.n_threads_
+        # xcs.POP_INIT = ...
+        xcs.POP_SIZE = self.n_pop_size_
+        xcs.MAX_TRIALS = self.n_iter_
+        # xcs.PERF_TRIALS = ...
+        # xcs.LOSS_FUNC = ...
+        # xcs.HUBER_DELTA = ...
+        xcs.E0 = self.epsilon0_
+        xcs.ALPHA = self.alpha_
+        xcs.NU = self.nu_
+        xcs.BETA = self.beta_
+        xcs.DELTA = self.ea_delta_
+        xcs.THETA_DEL = self.ea_theta_del_
+        # xcs.INIT_FITNESS = ...
+        # xcs.INIT_ERROR = ...
+        # xcs.M_PROBATION = ...
+        # xcs.STATEFUL = ...
+        xcs.SET_SUBSUMPTION = self.ea_set_subsumption_
+        xcs.THETA_SUB = self.ea_theta_sub_
+        xcs.COMPACTION = self.ea_compaction_
+        # xcs.TELETRANSPORTATION = ...
+        # xcs.GAMMA = ...
+        # xcs.P_EXPLORE = ...
+        xcs.EA_SELECT_TYPE = self.ea_select_type_
+        xcs.EA_SELECT_SIZE = self.ea_select_size_
+        xcs.THETA_EA = self.ea_theta_ea_
+        xcs.LAMBDA = self.ea_lambda_
+        xcs.P_CROSSOVER = self.ea_p_crossover_
+        xcs.ERR_REDUC = self.ea_err_reduc_
+        xcs.FIT_REDUC = self.ea_fit_reduc_
+        xcs.EA_SUBSUMPTION = self.ea_subsumption_
+        # xcs.EA_PRED_RESET = ...
 
         xcs.action("integer")  # (dummy) integer actions
 
-        N, DX = X.shape
-        vol_input_space = (X_max - X_min) ** DX
-        # Assume a maximum of 1000 (arbitrary over-the-head number) cubic rules
-        # to cover input space.
-        vol_min_rule = vol_input_space / 1000.0
-        # The DX'th root is equal to the side length of a cube with
-        # `vol_min_rule` volume.
-        width_min_rule_cubic = vol_min_rule ** (1 / DX)
-        spread_min_rule_cubic = width_min_rule_cubic / 2.0
+        if self.spread_min is None:
+            vol_input_space = (X_max - X_min) ** DX
+            # Assume a maximum of 1000 (arbitrary over-the-head number) cubic rules
+            # to cover input space.
+            vol_min_rule = vol_input_space / 1000.0
+            # The DX'th root is equal to the side length of a cube with
+            # `vol_min_rule` volume.
+            width_min_rule_cubic = vol_min_rule ** (1 / DX)
+            spread_min_rule_cubic = width_min_rule_cubic / 2.0
+            self.spread_min_ = spread_min_rule_cubic
+        else:
+            self.spread_min_ = self.spread_min
 
         args = {
             "min": X_min,  # minimum value of a lower bound
             "max": X_max,  # maximum value of an upper bound
-            "spread_min": spread_min_rule_cubic,  # minimum initial spread
+            "spread_min": self.spread_min_,  # minimum initial spread
             "eta": 0,  # disable gradient descent of centers towards matched input mean
         }
-        xcs.condition(self.condition, args)
+        xcs.condition(self.condition_, args)
 
         args = {
             "x0": 1,  # bias attribute
@@ -207,7 +349,8 @@ class XCSF(BaseEstimator, RegressorMixin):
 
         N, DX = X.shape
 
-        xcs = self._init_xcs(X)
+        self._parse_params(DX)
+        xcs = self._init_xcs(DX)
 
         xcs.fit(X, y, True)
 
