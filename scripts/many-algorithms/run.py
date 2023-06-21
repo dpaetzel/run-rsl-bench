@@ -32,7 +32,7 @@ from optuna.integration import OptunaSearchCV
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.linear_model import ARDRegression, BayesianRidge, Ridge
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsRegressor
@@ -203,15 +203,11 @@ def models(n_sample):
             },
         ),
         (
-            "BayesianRidge",
-            BayesianRidge(),
             {
                 # TODO Maybe hyperparameters here
             },
         ),
         (
-            "ARDRegression",
-            ARDRegression(),
             {
                 # TODO Maybe hyperparameters here
             },
