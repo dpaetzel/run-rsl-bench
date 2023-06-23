@@ -672,9 +672,13 @@ def runbest(
                 y_test_pred=y_test_pred,
             )
 
-            print(f"Storing {label} estimator …")
-            signature = infer_signature(X, y_pred)
-            log_model(estimator, "estimator", signature=signature)
+            if False:
+                try:
+                    print(f"Storing {label} estimator …")
+                    signature = infer_signature(X, y_pred)
+                    log_model(estimator, "estimator", signature=signature)
+                except:
+                    print("Failed to store estimator. Continuing anyway.")
 
     # Remove cached transformers.
     rmtree(cachedir)
