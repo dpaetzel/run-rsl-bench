@@ -128,7 +128,7 @@ def optparams(ctx, timeout, seed, experiment_name, node, slurm_options, path):
             # run too many jobs at the same time since we may run into IO
             # issues.
             n_cpus=4,
-            mem_per_cpu="1G",
+            mem_per_cpu="2G",
             dir_job=dir_job,
             dir_results=dir_results,
             n_reps=n_reps,
@@ -213,7 +213,7 @@ def runbest(
             # We're hardcoding 4 CPUs for now; some sklearn estimators seem to
             # profit from parallel processing.
             n_cpus=4,
-            mem_per_cpu="1G",
+            mem_per_cpu="2G",
             dir_job=dir_job,
             dir_results=dir_results,
             n_reps=n_reps,
