@@ -35,7 +35,8 @@ def _artifact_dir(artifact_uri, tracking_uri=None):
         If None, use the currently active tracking URI.
     """
 
-    artifact_uri = re.compile("^(/.*)?mlruns/").sub("mlruns/", artifact_uri)
+    artifact_uri = re.compile("^(.*)?mlruns/").sub("mlruns/", artifact_uri)
+    assert artifact_uri.startswith("mlruns/")
 
     if tracking_uri is None:
         tracking_uri = mlflow.get_tracking_uri()
@@ -43,7 +44,6 @@ def _artifact_dir(artifact_uri, tracking_uri=None):
     assert tracking_uri.endswith("mlruns") or tracking_uri.endswith("mlruns/"), (
         "Valid tracking URIs should " 'have the suffix "mlruns"'
     )
-    assert artifact_uri.startswith("mlruns/")
 
     path = tracking_uri.removesuffix("/").removesuffix("mlruns") + artifact_uri
     return path
