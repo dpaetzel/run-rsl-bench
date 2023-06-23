@@ -599,13 +599,11 @@ def runbest(
             estimator = make_pipeline(model, cachedir)
 
             print(f"Loading estimator with best hyperparameters from tuning data …")
-            best_estimator = load_model(
-                f'{store._artifact_dir(row["artifact_uri"], tracking_uri=tuning_uri)}/best_estimator'
+            best_params = store.load_dict("best_params", tracking_uri=tuning_uri)(
+                row["artifact_uri"]
             )
-            print(f"Extracting hyperparameters from best estimator …")
-            params = best_estimator.get_params()
             print(f"Setting hyperparameters of {label} …")
-            estimator.set_params(**params)
+            estimator.set_params(**best_params)
 
             print(f"Drawing and setting model RNG …")
             seed_model = randseed(random_state)
