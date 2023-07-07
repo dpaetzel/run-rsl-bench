@@ -384,7 +384,7 @@ class XCSF(BaseEstimator, RegressorMixin):
         n_fits = int(n_fits)
 
         score = np.inf
-        delta_scores = [np.inf] * 10
+        delta_scores = [np.inf] * 15
         for i in range(n_fits):
 
             xcs.fit(X, y, True)
