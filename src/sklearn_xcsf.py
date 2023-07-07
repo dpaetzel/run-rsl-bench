@@ -20,6 +20,7 @@
 # which was originally based on
 # https://github.com/berbl-dev/berbl-exp/blob/main/src/experiments/xcsf.py .
 import json
+import warnings
 
 import numpy as np
 import toolz
@@ -162,10 +163,24 @@ class XCSF(BaseEstimator, RegressorMixin):
         # EA_PRED_RESET
         condition="csr",
         spread_min=None,
+        check_convergence=True,
+        tol=None,
+        n_iter_no_change=1000,
     ):
         """
         Parameters
         ----------
+        spread_min : float > 0 or None
+        check_convergence : bool
+            Whether to use the `tol` `n_iter_no_change` mechanism to check for
+            convergence based on model scores on the training data.
+        tol : float > 0 or None
+            Tolerance for the optimization. When the loss (MAE on training data)
+            is not improving by at least `tol` for `n_iter_no_change`
+            consecutive iterations convergence is considered to be reached and
+            training stops. If `None`, then set `tol` to `epsilon0`.
+        n_iter_no_change : int
+            Maximum number of epochs to not meet `tol` improvement.
         """
         self.random_state = random_state
 
@@ -204,6 +219,10 @@ class XCSF(BaseEstimator, RegressorMixin):
 
         self.condition = condition
         self.spread_min = spread_min
+
+        self.check_convergence = check_convergence
+        self.tol = tol
+        self.n_iter_no_change = n_iter_no_change
 
     def _parse_params(self, DX):
         """
@@ -266,6 +285,7 @@ class XCSF(BaseEstimator, RegressorMixin):
 
         self.condition_ = "hyperrectangle_" + self.condition
         self.spread_min_ = self.spread_min
+        self.tol_ = self.tol if self.tol is not None else self.epsilon0_ / 10
 
     def _init_xcs(self, DX):
         random_state = check_random_state(self.random_state)
@@ -278,7 +298,9 @@ class XCSF(BaseEstimator, RegressorMixin):
         xcs.OMP_NUM_THREADS = self.n_threads_
         # xcs.POP_INIT = ...
         xcs.POP_SIZE = self.n_pop_size_
-        xcs.MAX_TRIALS = self.n_iter_
+        # We set this to `n_iter_no_change` so we can check for convergence
+        # after that many iterations.
+        xcs.MAX_TRIALS = self.n_iter_no_change
         # xcs.PERF_TRIALS = ...
         # xcs.LOSS_FUNC = ...
         # xcs.HUBER_DELTA = ...
@@ -352,7 +374,32 @@ class XCSF(BaseEstimator, RegressorMixin):
         self._parse_params(DX)
         xcs = self._init_xcs(DX)
 
-        xcs.fit(X, y, True)
+        n_fits = self.n_iter / self.n_iter_no_change
+        if n_fits != int(n_fits):
+            warnings.warn(
+                "XCSF.n_iter_no_change not a divisor of n_iter, "
+                "running up to n_iter_no_change more iterations"
+            )
+            n_fits = np.ceil(n_fits)
+        n_fits = int(n_fits)
+
+        score = np.inf
+        delta_scores = [np.inf] * 10
+        for i in range(n_fits):
+
+            xcs.fit(X, y, True)
+
+            if self.check_convergence:
+                score_last = score
+                score = xcs.score(X, y, cover=[0.0])
+                delta_score = np.abs(score_last - score)
+                delta_scores.append(delta_score)
+                del delta_scores[0]
+                delta_scores_mean = np.mean(delta_scores)
+                if delta_scores_mean < self.tol_:
+                    self.delta_scores_mean_final_ = delta_scores_mean
+                    break
+        self.n_updates_ = i * self.n_iter_no_change
 
         self.xcs_ = xcs
 
