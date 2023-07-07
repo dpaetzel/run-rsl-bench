@@ -312,9 +312,9 @@ class XCSF(BaseEstimator, RegressorMixin):
 
         if self.spread_min is None:
             vol_input_space = (X_max - X_min) ** DX
-            # Assume a maximum of 1000 (arbitrary over-the-head number) cubic rules
-            # to cover input space.
-            vol_min_rule = vol_input_space / 1000.0
+            # Assume a maximum of half the population size cubic rules to cover
+            # input space.
+            vol_min_rule = vol_input_space / (self.n_pop_size_ / 2.0)
             # The DX'th root is equal to the side length of a cube with
             # `vol_min_rule` volume.
             width_min_rule_cubic = vol_min_rule ** (1 / DX)
