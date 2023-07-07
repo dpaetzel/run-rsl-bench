@@ -321,13 +321,11 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
         with mlflow.start_run(run_name=run_name) as run:
             print(f"Run ID is {run.info.run_id}.")
 
-            print(f"Drawing and setting model RNG …")
-            seed_model = randseed(random_state)
             try:
-                model.set_params(random_state=seed_model)
-                print(f"RNG seed for {label} set to {seed_model}.")
+                model.set_params(random_state=None)
+                print(f"Set model RNG.")
             except ValueError:
-                print(f"Model {label} is deterministic, no seed set.")
+                print(f"Model {label} is deterministic, no RNG set.")
 
             mlflow.log_params(
                 {
