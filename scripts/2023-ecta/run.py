@@ -289,7 +289,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
         search = OptunaSearchCV(
             estimator,
             param_distributions=param_distributions,
-            cv=4,
+            cv=5,
             # This may suffer from GIL otherwise since multithreading is
             # implemented via `threading`.
             n_jobs=1,
