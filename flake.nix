@@ -5,17 +5,51 @@
     cmpbayes.url = "github:dpaetzel/cmpbayes/add-beta-binomial";
     cmpbayes.inputs.nixpkgs.follows = "nixpkgs";
 
+    mlflowExportImportSrc = {
+      url = "github:mlflow/mlflow-export-import/f9bba63";
+      flake = false;
+    };
+
     xcsf = {
       url = "github:dpaetzel/xcsf/flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    linearTreeSrc = {
+      url = "github:cerlymarco/linear-tree";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, cmpbayes, xcsf }:
+  outputs = { self, nixpkgs, cmpbayes, mlflowExportImportSrc, xcsf, linearTreeSrc }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
       python = pkgs.python310;
+
+      mlflow-import-export = python.pkgs.buildPythonApplication rec {
+        pname = "mlflow-import-export";
+        version = "dev";
+        src = mlflowExportImportSrc;
+
+        postPatch = ''
+          sed -i 's/pandas>=1.5.2/pandas/' setup.py
+          sed -i 's/mlflow-skinny>=2.2.2/mlflow/' setup.py
+        '';
+
+        doCheck = false;
+
+        propagatedBuildInputs = with python.pkgs; [ mlflow pandas ];
+      };
+
+      linear-tree = python.pkgs.buildPythonPackage rec {
+        pname = "linear-tree";
+        version = "dev";
+        src = linearTreeSrc;
+
+        propagatedBuildInputs = with python.pkgs; [ scipy numpy scikit-learn ];
+
+      };
     in rec {
       defaultPackage.${system} = python.pkgs.buildPythonPackage rec {
         pname = "TODO";
@@ -26,6 +60,9 @@
         format = "pyproject";
 
         propagatedBuildInputs = with python.pkgs; [
+          mlflow-import-export
+          linear-tree
+
           cmpbayes.defaultPackage."${system}"
           xcsf.defaultPackage."${system}"
           click
