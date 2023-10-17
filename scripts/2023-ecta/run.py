@@ -25,6 +25,8 @@ import numpy as np
 import optuna.distributions
 import store
 import toolz
+import lineartree
+import sklearn_lightgbm
 from dataset import file_digest, get_test, get_train
 from mlflow.models.signature import infer_signature
 from mlflow.sklearn import load_model, log_model
@@ -124,7 +126,6 @@ X_MIN, X_MAX = -1.0, 1.0
 
 
 def make_pipeline(model, cachedir):
-
     estimator = Pipeline(
         steps=[
             ("minmaxscaler", MinMaxScaler(feature_range=(X_MIN, X_MAX))),
@@ -167,10 +168,20 @@ def models(DX, n_sample):
         make_xcsf_triple(DX, n_pop_size=200),
         make_xcsf_triple(DX, n_pop_size=400),
         make_xcsf_triple(DX, n_pop_size=800),
+        (
+            "lightgbm.LinearTreeRegressor",
+            # TODO We can fit many trees and then only predict on a subset of them
+            sklearn_lightgbm.LinearTreeRegressor(),
+            {},  # TODO
+        ),
+        (
+            "lineartree.LinearTreeRegressor",
+            lineartree.LinearTreeRegressor(Ridge()),
+            {},  # TODO
+        ),
     ]
 
 
-# Copied from berbl-exp.experiments.utils.
 @click.group()
 @click.argument("NPZFILE")
 @click.pass_context
