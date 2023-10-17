@@ -1,21 +1,18 @@
 {
   inputs = {
-    # I typically use the exact nixpkgs set that I use for building my current
-    # system to avoid redundancy.
-    nixos-config.url = "github:dpaetzel/nixos-config";
+    nixpkgs.url = "github:dpaetzel/nixpkgs/dpaetzel/nixos-config";
 
     cmpbayes.url = "github:dpaetzel/cmpbayes/add-beta-binomial";
-    cmpbayes.inputs.nixos-config.follows = "nixos-config";
+    cmpbayes.inputs.nixpkgs.follows = "nixpkgs";
 
     xcsf = {
       url = "github:dpaetzel/xcsf/flake";
-      inputs.nixos-config.follows = "nixos-config";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixos-config, cmpbayes, xcsf }:
+  outputs = { self, nixpkgs, cmpbayes, xcsf }:
     let
-      nixpkgs = nixos-config.inputs.nixpkgs;
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
       python = pkgs.python310;
