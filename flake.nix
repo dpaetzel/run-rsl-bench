@@ -69,6 +69,7 @@
           matplotlib
           mlflow
           numpy
+          optuna
           pandas
           seaborn
           scipy
@@ -104,7 +105,7 @@
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
           pip install pystan==3.4.0
-          pip install optuna
+          # pip install optuna
         '';
       };
 
