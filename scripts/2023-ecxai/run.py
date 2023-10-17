@@ -32,10 +32,10 @@ from sklearn_xcsf import XCSF, bounds
 
 
 def file_digest(fname):
-    with open(fname, 'rb') as f:
+    with open(fname, "rb") as f:
         hash_object = hashlib.sha256()
         # Avoid loading large files into memory by reading in chunks.
-        for chunk in iter(lambda: f.read(4096), b''):
+        for chunk in iter(lambda: f.read(4096), b""):
             hash_object.update(chunk)
     return hash_object.hexdigest()
 
@@ -77,92 +77,135 @@ defaults = dict(n_iter=100000, pop_size=200, n_threads=4)
 
 
 @cli.command()
-@click.option("-s",
-              "--startseed",
-              type=click.IntRange(min=0),
-              default=0,
-              show_default=True,
-              help="First seed to use for initializing RNGs")
-@click.option("-e",
-              "--endseed",
-              type=click.IntRange(min=0),
-              default=9,
-              show_default=True,
-              help="Last seed to use for initializing RNGs")
-@click.option("--n-iter",
-              default=defaults["n_iter"],
-              type=int,
-              show_default=True,
-              help="Number of iterations to run the metaheuristic for")
-@click.option("--pop-size",
-              default=defaults["pop_size"],
-              type=int,
-              show_default=True,
-              help="Population size to be used by the metaheuristic")
-@click.option("--compact/--no-compact",
-              default=False,
-              type=bool,
-              show_default=True,
-              help="Whether to try to compact the final solution")
-@click.option("--n-threads",
-              default=defaults["n_threads"],
-              type=int,
-              show_default=True,
-              help="Number of threads to use while fitting XCSF")
+@click.option(
+    "-s",
+    "--startseed",
+    type=click.IntRange(min=0),
+    default=0,
+    show_default=True,
+    help="First seed to use for initializing RNGs",
+)
+@click.option(
+    "-e",
+    "--endseed",
+    type=click.IntRange(min=0),
+    default=9,
+    show_default=True,
+    help="Last seed to use for initializing RNGs",
+)
+@click.option(
+    "--n-iter",
+    default=defaults["n_iter"],
+    type=int,
+    show_default=True,
+    help="Number of iterations to run the metaheuristic for",
+)
+@click.option(
+    "--pop-size",
+    default=defaults["pop_size"],
+    type=int,
+    show_default=True,
+    help="Population size to be used by the metaheuristic",
+)
+@click.option(
+    "--compact/--no-compact",
+    default=False,
+    type=bool,
+    show_default=True,
+    help="Whether to try to compact the final solution",
+)
+@click.option(
+    "--n-threads",
+    default=defaults["n_threads"],
+    type=int,
+    show_default=True,
+    help="Number of threads to use while fitting XCSF",
+)
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, required=True)
 @click.argument("NPZFILE")
 @click.pass_context
-def runmany(ctx, startseed, endseed, n_iter, pop_size, compact, run_name,
-            n_threads, tracking_uri, experiment_name, npzfile):
-
+def runmany(
+    ctx,
+    startseed,
+    endseed,
+    n_iter,
+    pop_size,
+    compact,
+    run_name,
+    n_threads,
+    tracking_uri,
+    experiment_name,
+    npzfile,
+):
     for seed in range(startseed, endseed + 1):
-        ctx.invoke(run,
-                   seed=seed,
-                   n_iter=n_iter,
-                   pop_size=pop_size,
-                   compact=compact,
-                   n_threads=n_threads,
-                   run_name=run_name,
-                   tracking_uri=tracking_uri,
-                   experiment_name=experiment_name,
-                   npzfile=npzfile)
+        ctx.invoke(
+            run,
+            seed=seed,
+            n_iter=n_iter,
+            pop_size=pop_size,
+            compact=compact,
+            n_threads=n_threads,
+            run_name=run_name,
+            tracking_uri=tracking_uri,
+            experiment_name=experiment_name,
+            npzfile=npzfile,
+        )
 
 
 @cli.command()
-@click.option("-s",
-              "--seed",
-              type=click.IntRange(min=0),
-              default=0,
-              show_default=True,
-              help="Seed to use for initializing RNGs")
-@click.option("--n-iter",
-              default=defaults["n_iter"],
-              type=int,
-              show_default=True,
-              help="Number of iterations to run the metaheuristic for")
-@click.option("--pop-size",
-              default=defaults["pop_size"],
-              type=int,
-              show_default=True,
-              help="Population size to be used by the metaheuristic")
-@click.option("--compact/--no-compact",
-              default=False,
-              type=bool,
-              show_default=True,
-              help="Whether to try to compact the final solution")
-@click.option("--n-threads",
-              default=defaults["n_threads"],
-              type=int,
-              show_default=True,
-              help="Number of threads to use while fitting XCSF")
+@click.option(
+    "-s",
+    "--seed",
+    type=click.IntRange(min=0),
+    default=0,
+    show_default=True,
+    help="Seed to use for initializing RNGs",
+)
+@click.option(
+    "--n-iter",
+    default=defaults["n_iter"],
+    type=int,
+    show_default=True,
+    help="Number of iterations to run the metaheuristic for",
+)
+@click.option(
+    "--pop-size",
+    default=defaults["pop_size"],
+    type=int,
+    show_default=True,
+    help="Population size to be used by the metaheuristic",
+)
+@click.option(
+    "--compact/--no-compact",
+    default=False,
+    type=bool,
+    show_default=True,
+    help="Whether to try to compact the final solution",
+)
+@click.option(
+    "--n-threads",
+    default=defaults["n_threads"],
+    type=int,
+    show_default=True,
+    help="Number of threads to use while fitting XCSF",
+)
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, required=True)
 @click.argument("NPZFILE")
-def run(seed, n_iter, pop_size, compact, n_threads, run_name, tracking_uri,
-        experiment_name, npzfile):
+def run(
+    seed,
+    n_iter,
+    pop_size,
+    compact,
+    n_threads,
+    run_name,
+    tracking_uri,
+    experiment_name,
+    npzfile,
+):
     """
     Run XCSF on the data in NPZFILE, logging results using mlflow under the
     given EXPERIMENT_NAME and outputting plots of the found solutions.
@@ -170,10 +213,10 @@ def run(seed, n_iter, pop_size, compact, n_threads, run_name, tracking_uri,
     print(f"Logging to mlflow tracking URI {tracking_uri}.")
     mlflow.set_tracking_uri(tracking_uri)
 
-    print(f"Setting experiment name to \"{experiment_name}\".")
+    print(f'Setting experiment name to "{experiment_name}".')
     mlflow.set_experiment(experiment_name)
 
-    print(f"Setting run name to \"{run_name}\".")
+    print(f'Setting run name to "{run_name}".')
     with mlflow.start_run(run_name=run_name) as run:
         print(f"Run ID is {run.info.run_id}.")
 
@@ -181,24 +224,28 @@ def run(seed, n_iter, pop_size, compact, n_threads, run_name, tracking_uri,
         mlflow.log_param("seed", seed)
 
         data = np.load(npzfile)
-        mlflow.log_params({
-            "data.fname": npzfile,
-            "data.sha256": file_digest(npzfile)
-            # Python 3.11 and onwards we can simply do:
-            # hashlib.file_digest(npzfile, digest="sha256")
-        })
+        mlflow.log_params(
+            {
+                "data.fname": npzfile,
+                "data.sha256": file_digest(npzfile)
+                # Python 3.11 and onwards we can simply do:
+                # hashlib.file_digest(npzfile, digest="sha256")
+            }
+        )
 
         # Load training data.
         X, y = get_train(data)
 
         N, DX = X.shape
-        mlflow.log_params({
-            "data.N": N,
-            "data.DX": DX,
-            "pop_size": pop_size,
-            "n_iter": n_iter,
-            "compact": compact,
-        })
+        mlflow.log_params(
+            {
+                "data.N": N,
+                "data.DX": DX,
+                "pop_size": pop_size,
+                "n_iter": n_iter,
+                "compact": compact,
+            }
+        )
 
         # Load test data.
         X_test, y_test = get_test(data)
@@ -210,29 +257,25 @@ def run(seed, n_iter, pop_size, compact, n_threads, run_name, tracking_uri,
         uppers_true = centers_true + spreads_true
 
         K = len(centers_true)
-        mlflow.log_params({
-            "data.K":
-            K,
-            "data.linear_model_mse":
-            data["linear_model_mse"],
-            "data.linear_model_mae":
-            data["linear_model_mae"],
-            "data.linear_model_rsquared":
-            data["linear_model_rsquared"],
-            "data.rsl_model_mse":
-            data["rsl_model_mse"],
-            "data.rsl_model_mae":
-            data["rsl_model_mae"],
-            "data.rsl_model_rsquared":
-            data["rsl_model_rsquared"],
-        })
+        mlflow.log_params(
+            {
+                "data.K": K,
+                "data.linear_model_mse": data["linear_model_mse"],
+                "data.linear_model_mae": data["linear_model_mae"],
+                "data.linear_model_rsquared": data["linear_model_rsquared"],
+                "data.rsl_model_mse": data["rsl_model_mse"],
+                "data.rsl_model_mae": data["rsl_model_mae"],
+                "data.rsl_model_rsquared": data["rsl_model_rsquared"],
+            }
+        )
 
         def eval_model(model, label):
-
             pipe = make_pipeline(
                 MinMaxScaler(feature_range=(-1.0, 1.0)),
-                TransformedTargetRegressor(regressor=model,
-                                           transformer=StandardScaler()))
+                TransformedTargetRegressor(
+                    regressor=model, transformer=StandardScaler()
+                ),
+            )
             pipe.fit(X, y)
 
             print("Performing predictions on test data …")
@@ -244,28 +287,28 @@ def run(seed, n_iter, pop_size, compact, n_threads, run_name, tracking_uri,
             print(f"MSE test ({label}):", mse_test)
             mse_train = mean_squared_error(y_pred, y)
             print(f"MSE train ({label}):", mse_train)
-            mlflow.log_metrics({
-                f"mse.test.{label}": mse_test,
-                f"mse.train.{label}": mse_train
-            })
+            mlflow.log_metrics(
+                {f"mse.test.{label}": mse_test, f"mse.train.{label}": mse_train}
+            )
 
             # Store training data transformers.
             store.log_scalers(scaler_X=pipe[0], scaler_y=pipe[1].transformer_)
 
-            lowers, uppers = bounds(pipe[1].regressor_.rules_,
-                                    transformer_X=pipe[0])
-            similarities = scoring.similarities(lowers, uppers, lowers_true,
-                                                uppers_true)
+            lowers, uppers = bounds(pipe[1].regressor_.rules_, transformer_X=pipe[0])
+            similarities = scoring.similarities(
+                lowers, uppers, lowers_true, uppers_true
+            )
             # Use `_scores` instead of `scores` to not compute `similarities`
             # twice.
             scores = scoring._scores(similarities)
 
-            experiences = np.array(
-                [r["experience"] for r in pipe[1].regressor_.rules_])
+            experiences = np.array([r["experience"] for r in pipe[1].regressor_.rules_])
             if np.sum(experiences) < len(X):
-                print(f"WARNING: Training may have failed, the sum of "
-                      f"rule experiences is {np.sum(experiences)} for "
-                      f"{len(X)} training data points.")
+                print(
+                    f"WARNING: Training may have failed, the sum of "
+                    f"rule experiences is {np.sum(experiences)} for "
+                    f"{len(X)} training data points."
+                )
 
             store.log_arrays(
                 f"results.{label}",
@@ -280,18 +323,22 @@ def run(seed, n_iter, pop_size, compact, n_threads, run_name, tracking_uri,
 
             return y_pred, y_test_pred
 
-        model_ubr = XCSF(n_pop_size=pop_size,
-                         n_iter=n_iter,
-                         compaction=compact,
-                         random_state=seed,
-                         condition="hyperrectangle_ubr",
-                         n_threads=n_threads)
-        model_csr = XCSF(n_pop_size=pop_size,
-                         n_iter=n_iter,
-                         compaction=compact,
-                         random_state=seed,
-                         condition="hyperrectangle_csr",
-                         n_threads=n_threads)
+        model_ubr = XCSF(
+            n_pop_size=pop_size,
+            n_iter=n_iter,
+            compaction=compact,
+            random_state=seed,
+            condition="hyperrectangle_ubr",
+            n_threads=n_threads,
+        )
+        model_csr = XCSF(
+            n_pop_size=pop_size,
+            n_iter=n_iter,
+            compaction=compact,
+            random_state=seed,
+            condition="hyperrectangle_csr",
+            n_threads=n_threads,
+        )
         y_pred_ubr, y_test_pred_ubr = eval_model(model_ubr, "ubr")
         y_pred_csr, y_test_pred_csr = eval_model(model_csr, "csr")
 
