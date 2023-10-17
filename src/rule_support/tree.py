@@ -39,8 +39,8 @@ def extract_rules(estimator):
 
     rules = []
 
-    leq_threshold = "leq_threshold"
-    gt_threshold = "gt_threshold"
+    leq_threshold = "<="
+    gt_threshold = ">"
 
     def is_leaf(node):
         # TODO Maybe check children_right and children_left for
