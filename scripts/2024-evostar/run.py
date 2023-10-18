@@ -1,4 +1,4 @@
-# Perform hyperparameter search and runs on a set of `syn-rsl-benchs` data sets.
+# Perform hyperparameter search and runs on a set of `RSLModels.jl` data sets.
 #
 # Copyright (C) 2023 David Pätzel
 #
@@ -43,12 +43,15 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
-from sklearn_xcsf import XCSF
+from xcsf import XCS
 
 best_params_fname = "best_params.json"
 best_params_all_fname = "best_params_all.json"
 
 defaults = dict(n_iter=100000, timeout=10)
+
+
+X_MIN, X_MAX = -1.0, 1.0
 
 
 def _non_primitive_to_string(obj):
@@ -82,16 +85,96 @@ params_dt = {
 }
 
 
-params_fixed_xcsf = {
-    "n_threads": 4,
-    "n_iter": 200000,
-    "condition": "csr",
-    "ea_select_type": "tournament",
-    "ea_lambda": 2,
-}
+def params_xcsf_condition(spread_min):
+    return {
+        "type": "hyperrectangle_csr",
+        "args": {
+            # Minimum initial spread.
+            "spread_min": spread_min,
+            # Minimum value of a center/bound.
+            "min": 0,
+            # Maximum value of a center/bound.
+            "max": 1,
+            # Gradient descent rate for moving centers to mean inputs matched.
+            "eta": 0,
+        },
+    }
 
 
-def spread_min_cubic(DX, K=100):
+def params_xcsf(DX, n_pop_size, n_train, seed):
+    return {
+        "x_dim": DX,
+        "y_dim": 1,
+        "condition": params_xcsf_condition(spread_min_cubic(DX, n_pop_size)),
+        # Constant local models.
+        "prediction": {
+            "type": "constant",
+        },
+        # We do regression and only have a single (“dummy”) action.
+        "n_actions": 1,
+        "action": {"type": "integer"},
+        "pop_size": n_pop_size,
+        "max_trials": 200000,
+        "random_state": seed,
+        "omp_num_threads": 4,
+        # Don't load an existing population.
+        "population_file": "",
+        # Whether to seed the population with random rules.
+        "pop_init": True,
+        # `perf_trials > max_trials` means don't output performance stats.
+        "perf_trials": 1000000,
+        "loss_func": "mae",
+        "set_subsumption": False,
+        # Only relevant if `set_subsumption`.
+        "theta_sub": 100,
+        # Target error below which accuracy is set to 0.
+        "e0": 0.01,
+        # Accuracy offset for rules with errors above `e0`.
+        "alpha": 0.1,
+        # Accuracy slope.
+        "nu": 5,
+        # Learning rate for updating error, fitness and set size.
+        "beta": 0.1,
+        # Fraction of least fit rule to increase deletion vote.
+        "delta": 0.1,
+        # Min experience before fitness used in probability of deletion.
+        # TODO Make theta_del depend on the number training examples?
+        "theta_del": 20,
+        # Initial rule fitness.
+        "init_fitness": 0.01,
+        # Initial rule error.
+        "init_error": 0,
+        # Trials since creation a rule must match at least 1 input or be
+        # deleted. Any rule must match at least one of the training data points.
+        "m_probation": n_train,
+        # Rules should retain state between trials.
+        "stateful": True,
+        # “If enabled and system error < e0, the largest of 2 roulette spins is
+        # deleted.”
+        "compaction": False,
+        "ea": {
+            "select_type": "tournament",
+            # Fraction of set size for tournament parental selection.
+            "select_size": 0.4,
+            # Average set time between EA invocations.
+            "theta_ea": 50,
+            # Number of offspring to create each EA invocation (use multiples of 2).
+            "lambda": 2,
+            # Probability of applying crossover.
+            "p_crossover": 0.8,
+            # Factor to reduce created offspring's error by (1=disabled).
+            "err_reduc": 1,
+            # Factor to reduce created offspring's fitness by (1=disabled).
+            "fit_reduc": 0.1,
+            # Whether to try and subsume offspring rules.
+            "subsumption": False,
+            # Whether to reset offspring predictions instead of copying.
+            "pred_reset": False,
+        },
+    }
+
+
+def spread_min_cubic(DX, K=100, X_MIN=X_MIN, X_MAX=X_MAX):
     """
     Given an input space dimension and a rule count, returns the spread that
     each rule would have if each rule were cubic and the rules fully covered the
@@ -110,19 +193,24 @@ def spread_min_cubic(DX, K=100):
 def params_var_xcsf(DX, n_pop_size):
     spread_min_cubic_ = spread_min_cubic(DX, n_pop_size)
     return {
-        "spread_min": optuna.distributions.CategoricalDistribution(
-            [factor * spread_min_cubic_ for factor in [0.5, 0.75, 1, 2]]
+        # Note that this CategoricalDistribution raises a UserWarning because
+        # it's a distribution over `dict`s which are not supported by Optuna's
+        # storages. However, we do not use those storages so we're fine. We
+        # could only circumvent this by either changing XCS's parameters to
+        # being flat (i.e. condition not being expected to be a `dict`) or by
+        # switching to Optuna's default interface.
+        "condition": optuna.distributions.CategoricalDistribution(
+            [
+                params_xcsf_condition(factor * spread_min_cubic_)
+                for factor in [0.5, 0.75, 1, 2]
+            ]
         ),
-        "epsilon0": optuna.distributions.CategoricalDistribution(
-            [0.01, 0.05, 0.1, 0.2]
-        ),
+        "e0": optuna.distributions.CategoricalDistribution([0.01, 0.05, 0.1, 0.2]),
         "beta": optuna.distributions.CategoricalDistribution([0.01, 0.05, 0.1]),
     }
 
 
 regressor_name = "ttregressor"
-
-X_MIN, X_MAX = -1.0, 1.0
 
 
 def make_pipeline(model, cachedir):
@@ -142,43 +230,35 @@ def make_pipeline(model, cachedir):
     return estimator
 
 
-def make_xcsf_triple(DX, n_pop_size):
+def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
     return (
         f"XCSF{n_pop_size}",
-        XCSF(n_pop_size=n_pop_size, **params_fixed_xcsf),
-        params_var_xcsf(DX, n_pop_size=n_pop_size),
+        XCS().set_params(
+            **params_xcsf(DX=DX, n_pop_size=n_pop_size, n_train=n_train, seed=seed)
+        ),
+        params_var_xcsf(DX=DX, n_pop_size=n_pop_size),
     )
 
 
-def models(DX, n_sample):
+def models(DX, n_train):
     return [
-        ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
-        (
-            "KNeighborsRegressor",
-            KNeighborsRegressor(),
-            {
-                "n_neighbors": optuna.distributions.IntDistribution(1, 10),
-                "weights": optuna.distributions.CategoricalDistribution(
-                    ["uniform", "distance"]
-                ),
-            },
-        ),
-        make_xcsf_triple(DX, n_pop_size=50),
-        make_xcsf_triple(DX, n_pop_size=100),
-        make_xcsf_triple(DX, n_pop_size=200),
-        make_xcsf_triple(DX, n_pop_size=400),
-        make_xcsf_triple(DX, n_pop_size=800),
-        (
-            "lightgbm.LinearTreeRegressor",
-            # TODO We can fit many trees and then only predict on a subset of them
-            sklearn_lightgbm.LinearTreeRegressor(),
-            {},  # TODO
-        ),
-        (
-            "lineartree.LinearTreeRegressor",
-            lineartree.LinearTreeRegressor(Ridge()),
-            {},  # TODO
-        ),
+        # ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
+        # (
+        #     "KNeighborsRegressor",
+        #     KNeighborsRegressor(),
+        #     {
+        #         "n_neighbors": optuna.distributions.IntDistribution(1, 10),
+        #         "weights": optuna.distributions.CategoricalDistribution(
+        #             ["uniform", "distance"]
+        #         ),
+        #     },
+        # ),
+        make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train),
+        make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
+        make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
+        make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train),
+        make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train),
+        # TODO Add normal constant-leaf trees here
     ]
 
 
@@ -203,10 +283,6 @@ def cli(ctx, npzfile):
     assert len(y) == len(X)
     assert len(y_test) == len(X_test)
 
-    # Load ground truth.
-    centers_true = data["centers"]
-    K = len(centers_true)
-
     ctx.obj["npzfile"] = npzfile
     ctx.obj["data"] = data
     ctx.obj["X"] = X
@@ -214,7 +290,6 @@ def cli(ctx, npzfile):
     ctx.obj["X_test"] = X_test
     ctx.obj["y_test"] = y_test
     ctx.obj["DX"] = DX
-    ctx.obj["K"] = K
     ctx.obj["N"] = N
     ctx.obj["sha256"] = file_digest(npzfile)
 
@@ -250,7 +325,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
     X_test = ctx.obj["X_test"]
     y_test = ctx.obj["y_test"]
     DX = ctx.obj["DX"]
-    K = ctx.obj["K"]
+    # K = ctx.obj["K"]
     N = ctx.obj["N"]
     sha256 = ctx.obj["sha256"]
 
@@ -325,7 +400,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
 
         return search
 
-    ms = models(DX=DX, n_sample=len(X))
+    ms = models(DX=DX, n_train=len(X))
 
     for label, model, params in ms:
         print(f'Setting run name to "{run_name}".')
@@ -333,7 +408,11 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
             print(f"Run ID is {run.info.run_id}.")
 
             try:
-                model.set_params(random_state=None)
+                if type(model) == XCS:
+                    # Unsetting XCSF's RNG seed corresponds to setting it to 0.
+                    model.set_params(random_state=0)
+                else:
+                    model.set_params(random_state=None)
                 print(f"Set model RNG.")
             except ValueError:
                 print(f"Model {label} is deterministic, no RNG set.")
@@ -350,13 +429,13 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
                     # hashlib.file_digest(npzfile, digest="sha256")
                     "data.N": N,
                     "data.DX": DX,
-                    "data.K": K,
-                    "data.linear_model_mse": data["linear_model_mse"],
-                    "data.linear_model_mae": data["linear_model_mae"],
-                    "data.linear_model_rsquared": data["linear_model_rsquared"],
-                    "data.rsl_model_mse": data["rsl_model_mse"],
-                    "data.rsl_model_mae": data["rsl_model_mae"],
-                    "data.rsl_model_rsquared": data["rsl_model_rsquared"],
+                    # "data.K": K,
+                    # "data.linear_model_mse": data["linear_model_mse"],
+                    # "data.linear_model_mae": data["linear_model_mae"],
+                    # "data.linear_model_rsquared": data["linear_model_rsquared"],
+                    # "data.rsl_model_mse": data["rsl_model_mse"],
+                    # "data.rsl_model_mae": data["rsl_model_mae"],
+                    # "data.rsl_model_rsquared": data["rsl_model_rsquared"],
                 }
             )
 
@@ -451,7 +530,6 @@ def runbest(
     X_test = ctx.obj["X_test"]
     y_test = ctx.obj["y_test"]
     DX = ctx.obj["DX"]
-    K = ctx.obj["K"]
     N = ctx.obj["N"]
     sha256 = ctx.obj["sha256"]
 
@@ -472,7 +550,7 @@ def runbest(
     print(f'Setting experiment name to "{experiment_name}".')
     mlflow.set_experiment(experiment_name)
 
-    ms = models(n_sample=N)
+    ms = models(DX=DX, n_train=N)
 
     for label, model, _ in ms:
         print()
@@ -527,13 +605,6 @@ def runbest(
                     # hashlib.file_digest(npzfile, digest="sha256")
                     "data.N": N,
                     "data.DX": DX,
-                    "data.K": K,
-                    "data.linear_model_mse": data["linear_model_mse"],
-                    "data.linear_model_mae": data["linear_model_mae"],
-                    "data.linear_model_rsquared": data["linear_model_rsquared"],
-                    "data.rsl_model_mse": data["rsl_model_mse"],
-                    "data.rsl_model_mae": data["rsl_model_mae"],
-                    "data.rsl_model_rsquared": data["rsl_model_rsquared"],
                 }
             )
 
