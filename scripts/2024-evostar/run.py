@@ -51,6 +51,7 @@ best_params_all_fname = "best_params_all.json"
 defaults = dict(n_iter=100000, timeout=10)
 
 
+# TODO Unify X_MIN vs X_min vs x_min
 X_MIN, X_MAX = -1.0, 1.0
 
 
@@ -331,7 +332,6 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
     X_test = ctx.obj["X_test"]
     y_test = ctx.obj["y_test"]
     DX = ctx.obj["DX"]
-    # K = ctx.obj["K"]
     N = ctx.obj["N"]
     sha256 = ctx.obj["sha256"]
     hash_data = ctx.obj["hash"]
@@ -638,6 +638,16 @@ def runbest(
                 y_pred=y_pred,
                 y_test_pred=y_test_pred,
             )
+
+            estimator_inner = estimator[1].regressor
+            if type(estimator_inner) == XCS:
+                lowers, uppers = xcsf_utils.bounds(
+                    estimator[1].regressor,
+                    X_min=X_MIN,
+                    X_max=X_MAX,
+                    transformer_X=estimator[0],
+                )
+            store.log_arrays("bounds", lowers=lowers, uppers=uppers)
 
             if False:
                 try:
