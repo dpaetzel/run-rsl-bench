@@ -292,6 +292,7 @@ def cli(ctx, npzfile):
     ctx.obj["DX"] = DX
     ctx.obj["N"] = N
     ctx.obj["sha256"] = file_digest(npzfile)
+    ctx.obj["hash"] = data["hash"]
 
 
 @cli.command()
@@ -328,6 +329,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
     # K = ctx.obj["K"]
     N = ctx.obj["N"]
     sha256 = ctx.obj["sha256"]
+    hash_data = ctx.obj["hash"]
 
     print(f"Initializing RNG from seed {seed} …")
     random_state = check_random_state(seed)
@@ -425,17 +427,9 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
                     "algorithm": label,
                     "data.fname": npzfile,
                     "data.sha256": sha256,
-                    # Python 3.11 and onwards we can simply do:
-                    # hashlib.file_digest(npzfile, digest="sha256")
+                    "data.hash": hash_data,
                     "data.N": N,
                     "data.DX": DX,
-                    # "data.K": K,
-                    # "data.linear_model_mse": data["linear_model_mse"],
-                    # "data.linear_model_mae": data["linear_model_mae"],
-                    # "data.linear_model_rsquared": data["linear_model_rsquared"],
-                    # "data.rsl_model_mse": data["rsl_model_mse"],
-                    # "data.rsl_model_mae": data["rsl_model_mae"],
-                    # "data.rsl_model_rsquared": data["rsl_model_rsquared"],
                 }
             )
 
@@ -532,6 +526,7 @@ def runbest(
     DX = ctx.obj["DX"]
     N = ctx.obj["N"]
     sha256 = ctx.obj["sha256"]
+    hash_data = ctx.obj["hash"]
 
     print(f"Loading runs from {tuning_uri} …")
     mlflow.set_tracking_uri(tuning_uri)
@@ -601,8 +596,7 @@ def runbest(
                     "seed_model": seed_model,
                     "data.fname": npzfile,
                     "data.sha256": sha256,
-                    # Python 3.11 and onwards we can simply do:
-                    # hashlib.file_digest(npzfile, digest="sha256")
+                    "data.hash": hash_data,
                     "data.N": N,
                     "data.DX": DX,
                 }
