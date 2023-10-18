@@ -615,6 +615,8 @@ def runbest(
                 }
             )
 
+            mlflow.log_params(best_params)
+
             print(f"Fitting {label} …")
             t_start = time.time()
             estimator.fit(X, y)
