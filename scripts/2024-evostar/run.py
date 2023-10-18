@@ -26,7 +26,6 @@ import optuna.distributions
 import store
 import toolz
 import lineartree
-import sklearn_lightgbm
 from dataset import file_digest, get_test, get_train
 from mlflow.models.signature import infer_signature
 from mlflow.sklearn import load_model, log_model
