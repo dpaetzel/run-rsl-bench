@@ -113,7 +113,7 @@ def optparams(ctx, timeout, seed, experiment_name, node, slurm_options, path):
     def submit_npz(npzfile, seed_start, n_reps):
         command = (
             # Note that we keep `{job_dir}` to be inserted by `submit`.
-            f'python {{dir_job}}/scripts/many-algorithms/run.py "{npzfile}" optparams '
+            f'python {{dir_job}}/scripts/2024-evostar/run.py "{npzfile}" optparams '
             f"--tracking-uri={tracking_uri} "
             f"--experiment-name={experiment_name} "
             "--run-name=${{SLURM_ARRAY_JOB_ID}} "
