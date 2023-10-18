@@ -1,19 +1,7 @@
+import xcsf
+
 import json
 import numpy as np
-
-
-def rules(xcs):
-    return_condition = True
-    return_action = True
-    return_prediction = True
-    json_string = xcs.json(return_condition, return_action, return_prediction)
-    pop = json.loads(json_string)
-    rules = pop["classifiers"]
-    return rules
-
-
-def bounds(xcs, X_min, X_max, transformer_X=None):
-    return _bounds(rules(xcs), X_min, X_max, transformer_X)
 
 
 def _bounds(rules, X_min, X_max, transformer_X=None):
@@ -77,3 +65,14 @@ def _bounds(rules, X_min, X_max, transformer_X=None):
         uppers = np.array(lowers)
 
     return lowers, uppers
+
+
+class XCS(xcsf.XCS):
+    def rules_(self, X_min=0.0, X_max=1.0, transformer_X=None):
+        return_condition = True
+        return_action = True
+        return_prediction = True
+        json_string = self.json(return_condition, return_action, return_prediction)
+        pop = json.loads(json_string)
+        rules = pop["classifiers"]
+        return _bounds(rules, X_min=X_min, X_max=X_max, transformer_X=transformer_X)

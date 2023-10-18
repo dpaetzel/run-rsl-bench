@@ -43,7 +43,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
-from xcsf import XCS
+from rule_support.xcsf import XCS
 
 best_params_fname = "best_params.json"
 best_params_all_fname = "best_params_all.json"
@@ -639,14 +639,11 @@ def runbest(
                 y_test_pred=y_test_pred,
             )
 
+            print(f"Storing rules created by {label} …")
             estimator_inner = estimator[1].regressor
-            if type(estimator_inner) == XCS:
-                lowers, uppers = xcsf_utils.bounds(
-                    estimator[1].regressor,
-                    X_min=X_MIN,
-                    X_max=X_MAX,
-                    transformer_X=estimator[0],
-                )
+            lowers, uppers = estimator_inner.rules_(
+                X_min=X_MIN, X_max=X_MAX, transformer_X=estimator[0]
+            )
             store.log_arrays("bounds", lowers=lowers, uppers=uppers)
 
             if False:
