@@ -250,17 +250,17 @@ def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
 
 def models(DX, n_train):
     return [
-        # ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
-        # (
-        #     "KNeighborsRegressor",
-        #     KNeighborsRegressor(),
-        #     {
-        #         "n_neighbors": optuna.distributions.IntDistribution(1, 10),
-        #         "weights": optuna.distributions.CategoricalDistribution(
-        #             ["uniform", "distance"]
-        #         ),
-        #     },
-        # ),
+        ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
+        (
+            "KNeighborsRegressor",
+            KNeighborsRegressor(),
+            {
+                "n_neighbors": optuna.distributions.IntDistribution(1, 10),
+                "weights": optuna.distributions.CategoricalDistribution(
+                    ["uniform", "distance"]
+                ),
+            },
+        ),
         (
             "DecisionTreeRegressor",
             DecisionTreeRegressor(),
@@ -647,12 +647,16 @@ def runbest(
                 y_test_pred=y_test_pred,
             )
 
-            print(f"Storing rules created by {label} …")
-            estimator_inner = estimator[1].regressor_
-            lowers, uppers = estimator_inner.bounds_(
-                X_min=X_MIN, X_max=X_MAX, transformer_X=estimator[0]
-            )
-            store.log_arrays("bounds", lowers=lowers, uppers=uppers)
+            try:
+                print(f"Trying to store rules created by {label} …")
+                estimator_inner = estimator[1].regressor_
+                lowers, uppers = estimator_inner.bounds_(
+                    X_min=X_MIN, X_max=X_MAX, transformer_X=estimator[0]
+                )
+                store.log_arrays("bounds", lowers=lowers, uppers=uppers)
+                print(f"Stored rules created by {label}.")
+            except AttributeError:
+                print(f"{label} did not create rules, skipping rule storing …")
 
             if False:
                 try:
