@@ -43,6 +43,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
+
+from rule_support.tree import DecisionTreeRegressor
 from rule_support.xcsf import XCS
 
 best_params_fname = "best_params.json"
@@ -259,11 +261,17 @@ def models(DX, n_train):
         #         ),
         #     },
         # ),
+        (
+            "DecisionTreeRegressor",
+            DecisionTreeRegressor(),
+            # TODO
+            {"max_depth": optuna.distributions.IntDistribution(2, 5)},
+        ),
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train),
-        make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
-        make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
-        make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train),
-        make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train),
+        # make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
+        # make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
+        # make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train),
+        # make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train),
         # TODO Add normal constant-leaf trees here
     ]
 
@@ -640,8 +648,8 @@ def runbest(
             )
 
             print(f"Storing rules created by {label} …")
-            estimator_inner = estimator[1].regressor
-            lowers, uppers = estimator_inner.rules_(
+            estimator_inner = estimator[1].regressor_
+            lowers, uppers = estimator_inner.bounds_(
                 X_min=X_MIN, X_max=X_MAX, transformer_X=estimator[0]
             )
             store.log_arrays("bounds", lowers=lowers, uppers=uppers)

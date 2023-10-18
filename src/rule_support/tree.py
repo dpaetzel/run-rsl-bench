@@ -23,10 +23,14 @@ from sklearn.utils.validation import check_is_fitted  # type: ignore
 class DecisionTreeRegressor(sklearn.tree.DecisionTreeRegressor):
     @property
     def rules_(self):
-
         check_is_fitted(self)
-
         return extract_rules(self)
+
+    def bounds_(self, X_min, X_max, transformer_X=None):
+        rules = self.rules_
+        lowers = np.array([rule["l"] for rule in rules])
+        uppers = np.array([rule["u"] for rule in rules])
+        return lowers, uppers
 
 
 # TODO Consider to make this/check whether it already is general (i.e. include
@@ -35,7 +39,7 @@ def extract_rules(estimator):
     if hasattr(estimator, "feature_names_in_"):
         feature_names = estimator.feature_names_in_
     else:
-        feature_names = ["feature_" + str(i) for i in range(estimator.n_features_)]
+        feature_names = ["feature_" + str(i) for i in range(estimator.n_features_in_)]
 
     rules = []
 
@@ -78,7 +82,6 @@ def extract_rules(estimator):
             thresholds = np.array(thresholds)
 
             for feature_name in feature_names:
-
                 # Lower bound (i.e. `data > threshold`).
                 #
                 # If no threshold below the data, set lower bound to
