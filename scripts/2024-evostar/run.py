@@ -91,10 +91,10 @@ def params_xcsf_condition(spread_min):
         "args": {
             # Minimum initial spread.
             "spread_min": spread_min,
-            # Minimum value of a center/bound.
-            "min": 0,
-            # Maximum value of a center/bound.
-            "max": 1,
+            # Minimum value of a center/bound. We add a bit of wiggle room.
+            "min": X_MIN - 0.05,
+            # Maximum value of a center/bound. We add a bit of wiggle room.
+            "max": X_MAX + 0.05,
             # Gradient descent rate for moving centers to mean inputs matched.
             "eta": 0,
         },
@@ -234,7 +234,12 @@ def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
     return (
         f"XCSF{n_pop_size}",
         XCS().set_params(
-            **params_xcsf(DX=DX, n_pop_size=n_pop_size, n_train=n_train, seed=seed)
+            **params_xcsf(
+                DX=DX,
+                n_pop_size=n_pop_size,
+                n_train=n_train,
+                seed=seed,
+            )
         ),
         params_var_xcsf(DX=DX, n_pop_size=n_pop_size),
     )
