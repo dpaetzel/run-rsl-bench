@@ -44,6 +44,7 @@ from sklearn.utils import check_random_state
 from rule_support.ensemble import RandomForestRegressor
 from rule_support.tree import DecisionTreeRegressor
 from rule_support.xcsf import XCS
+from rule_support.suprb import SupRB
 
 best_params_fname = "best_params.json"
 best_params_all_fname = "best_params_all.json"
@@ -248,6 +249,12 @@ def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
 
 def models(DX, n_train):
     return [
+        (
+            "SupRB",
+            SupRB(n_iter=1),
+            # TODO Sensible vals here
+            {"n_iter": optuna.distributions.IntDistribution(1, 2)},
+        ),
         (
             "RandomForestRegressor30",
             RandomForestRegressor(n_estimators=30),

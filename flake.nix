@@ -10,6 +10,11 @@
       flake = false;
     };
 
+    suprb = {
+      url = "github:dpaetzel/suprb/make-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     xcsf = {
       url = "github:dpaetzel/xcsf/flake";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -21,7 +26,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, cmpbayes, mlflowExportImportSrc, xcsf, linearTreeSrc }:
+  outputs = { self, nixpkgs, cmpbayes, mlflowExportImportSrc, suprb, xcsf, linearTreeSrc }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
@@ -74,6 +79,7 @@
           seaborn
           scipy
           scikit-learn
+          suprb.packages."${system}".default
           toolz
           tqdm
         ];
@@ -110,7 +116,7 @@
       };
 
       devShell.submit = pkgs.mkShell {
-        buildInputs = [( python.withPackages(ps: [ps.click ps.mlflow]) )];
+        buildInputs = [ (python.withPackages (ps: [ ps.click ps.mlflow ])) ];
 
         # postShellHook is a Python thing (which is enabled, I think, by
         # venvShellHook?).
