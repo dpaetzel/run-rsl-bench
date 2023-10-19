@@ -31,8 +31,6 @@ from mlflow.models.signature import infer_signature
 from mlflow.sklearn import load_model, log_model
 from optuna.integration import OptunaSearchCV
 from sklearn.compose import TransformedTargetRegressor
-from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
-from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import cross_val_score
@@ -43,6 +41,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
 
+from rule_support.ensemble import RandomForestRegressor
 from rule_support.tree import DecisionTreeRegressor
 from rule_support.xcsf import XCS
 
@@ -249,6 +248,13 @@ def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
 
 def models(DX, n_train):
     return [
+        (
+            "RandomForestRegressor30",
+            RandomForestRegressor(n_estimators=30),
+            # TODO Sensible vals here
+            # TODO Use above DT defaults
+            {"max_depth": optuna.distributions.IntDistribution(2, 5)},
+        ),
         ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
         (
             "KNeighborsRegressor",
