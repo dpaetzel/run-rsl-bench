@@ -1,7 +1,25 @@
+# An extension of xcsf for if-then rule extraction.
+#
+# Copyright (C) 2023 David Pätzel
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import xcsf
 
 import json
 import numpy as np
+
+from .utils import clamp_transform
 
 
 def _bounds(rules, X_min, X_max, transformer_X=None):
@@ -51,18 +69,8 @@ def _bounds(rules, X_min, X_max, transformer_X=None):
                 "bounds_ only exists for hyperrectangular conditions"
             )
 
-        lower = np.clip(lower, X_min, X_max)
-        upper = np.clip(upper, X_min, X_max)
-
         lowers.append(lower)
         uppers.append(upper)
-
-    if transformer_X is not None:
-        lowers = transformer_X.inverse_transform(lowers)
-        uppers = transformer_X.inverse_transform(uppers)
-    else:
-        lowers = np.array(lowers)
-        uppers = np.array(lowers)
 
     return lowers, uppers
 
@@ -78,6 +86,8 @@ class XCS(xcsf.XCS):
         return pop["classifiers"]
 
     def bounds_(self, X_min, X_max, transformer_X=None):
-        return _bounds(
+        lowers, uppers = _bounds(
             self.rules_, X_min=X_min, X_max=X_max, transformer_X=transformer_X
         )
+
+        return clamp_transform(lowers, uppers, X_min, X_max, transformer_X)

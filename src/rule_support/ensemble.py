@@ -19,6 +19,7 @@ from sklearn.utils.validation import check_is_fitted  # type: ignore
 import sklearn.ensemble
 
 from .tree import extract_rules
+from .utils import clamp_transform
 
 
 class RandomForestRegressor(sklearn.ensemble.RandomForestRegressor):
@@ -37,4 +38,5 @@ class RandomForestRegressor(sklearn.ensemble.RandomForestRegressor):
         rules = self.rules_
         lowers = np.array([rule["l"] for rule in rules])
         uppers = np.array([rule["u"] for rule in rules])
-        return lowers, uppers
+
+        return clamp_transform(lowers, uppers, X_min, X_max, transformer_X)

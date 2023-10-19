@@ -19,6 +19,8 @@ import sklearn.tree  # type: ignore
 from sklearn.tree import _tree  # type: ignore
 from sklearn.utils.validation import check_is_fitted  # type: ignore
 
+from .utils import clamp_transform
+
 
 class DecisionTreeRegressor(sklearn.tree.DecisionTreeRegressor):
     @property
@@ -30,7 +32,8 @@ class DecisionTreeRegressor(sklearn.tree.DecisionTreeRegressor):
         rules = self.rules_
         lowers = np.array([rule["l"] for rule in rules])
         uppers = np.array([rule["u"] for rule in rules])
-        return lowers, uppers
+
+        return clamp_transform(lowers, uppers, X_min, X_max, transformer_X)
 
 
 # TODO Consider to make this/check whether it already is general (i.e. include
