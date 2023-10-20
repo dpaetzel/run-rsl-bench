@@ -262,21 +262,11 @@ def models(DX, n_train):
             # TODO Use above DT defaults
             {"max_depth": optuna.distributions.IntDistribution(2, 5)},
         ),
-        ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
-        (
-            "KNeighborsRegressor",
-            KNeighborsRegressor(),
-            {
-                "n_neighbors": optuna.distributions.IntDistribution(1, 10),
-                "weights": optuna.distributions.CategoricalDistribution(
-                    ["uniform", "distance"]
-                ),
-            },
-        ),
         (
             "DecisionTreeRegressor",
             DecisionTreeRegressor(),
-            # TODO
+            # TODO Sensible vals here
+            # TODO Use above DT defaults
             {"max_depth": optuna.distributions.IntDistribution(2, 5)},
         ),
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train),
@@ -284,7 +274,17 @@ def models(DX, n_train):
         # make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train),
-        # TODO Add normal constant-leaf trees here
+        # ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
+        # (
+        #     "KNeighborsRegressor",
+        #     KNeighborsRegressor(),
+        #     {
+        #         "n_neighbors": optuna.distributions.IntDistribution(1, 10),
+        #         "weights": optuna.distributions.CategoricalDistribution(
+        #             ["uniform", "distance"]
+        #         ),
+        #     },
+        # ),
     ]
 
 
