@@ -52,6 +52,10 @@ best_params_all_fname = "best_params_all.json"
 defaults = dict(n_iter=100000, timeout=10)
 
 
+# We try to parallelize stuff at the algorithm level fourways. I.e. XCSF and SupRB.
+N_JOBS = 4
+
+
 # TODO Unify X_MIN vs X_min vs x_min
 X_MIN, X_MAX = -1.0, 1.0
 
@@ -118,7 +122,7 @@ def params_xcsf(DX, n_pop_size, n_train, seed):
         "pop_size": n_pop_size,
         "max_trials": 200000,
         "random_state": seed,
-        "omp_num_threads": 4,
+        "omp_num_threads": N_JOBS,
         # Don't load an existing population.
         "population_file": "",
         # Whether to seed the population with random rules.
@@ -251,9 +255,9 @@ def models(DX, n_train):
     return [
         (
             "SupRB",
-            SupRB(n_iter=1),
+            SupRB(n_jobs=N_JOBS),
             # TODO Sensible vals here
-            {"n_iter": optuna.distributions.IntDistribution(1, 2)},
+            {"n_iter": optuna.distributions.IntDistribution(16, 32)},
         ),
         (
             "RandomForestRegressor30",
