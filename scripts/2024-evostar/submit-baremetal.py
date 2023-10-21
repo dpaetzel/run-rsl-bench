@@ -106,9 +106,6 @@ def optparams(ctx, timeout, n_workers, seed, experiment_name, path):
     a directory, look at its immediate contents (i.e. non-recursively) and
     run many Python processes (one per NPZ file found) using GNU Parallel.
     """
-    if slurm_options is not None:
-        raise NotImplementedError("Has to be implemented")
-
     dir_job = ctx.obj["dir_job"]
     dir_results = ctx.obj["dir_results"]
     tracking_uri = ctx.obj["tracking_uri"]
