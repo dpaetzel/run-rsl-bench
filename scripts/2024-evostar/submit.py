@@ -118,7 +118,7 @@ def optparams(ctx, timeout, seed, experiment_name, node, slurm_options, path):
             f"--experiment-name={experiment_name} "
             "--run-name=${{SLURM_ARRAY_JOB_ID}} "
             f"--timeout={timeout} "
-            f"{'' if seed is None else f'--seed={seed}'} "
+            f"{'' if seed_start is None else f'--seed={seed_start}'} "
         )
         slurm.submit(
             command,
