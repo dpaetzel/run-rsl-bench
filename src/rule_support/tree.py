@@ -44,6 +44,8 @@ def extract_rules(estimator):
     else:
         feature_names = ["feature_" + str(i) for i in range(estimator.n_features_in_)]
 
+    dx = len(feature_names)
+
     rules = []
 
     leq_threshold = "<="
@@ -78,37 +80,48 @@ def extract_rules(estimator):
                 feature_names,
             )
         else:
-            lowers, uppers = [], []
+            lowers, uppers = np.repeat(-np.inf, dx), np.repeat(np.inf, dx)
             features = np.array(features)
             # Says whether data <= threshold or data > threshold.
             rels = np.array(rels)
             thresholds = np.array(thresholds)
 
-            for feature_name in feature_names:
+            for idx in range(dx):
+                # Get current feature name.
+                feature_name = feature_names[idx]
+
+                # Get the relations and threshold for the currently considered
+                # dimension.
+                idx_levels = np.where(features == feature_name)
+                rels_ = rels[idx_levels]
+                thresholds_ = thresholds[idx_levels]
+
                 # Lower bound (i.e. `data > threshold`).
                 #
                 # If no threshold below the data, set lower bound to
                 # negative infinity.
-                if not np.any(rels == gt_threshold):
-                    lowers.append(-np.inf)
+                if not np.any(rels_ == gt_threshold):
+                    lowers[idx] = -np.inf
                 else:
-                    # Otherwise, lower bound is highest of the lower thresholds.
-                    lowers.append(np.max(thresholds[rels == gt_threshold]))
+                    # Otherwise, lower bound is highest of the lower thresholds
+                    # of this dimension.
+                    lowers[idx] = np.max(thresholds_[rels_ == gt_threshold])
 
                 # Upper bound (i.e. `data <= threshold`).
                 #
                 # If no threshold above the data, set to upper bound to
                 # positive infinity.
-                if not np.any(rels == leq_threshold):
-                    uppers.append(np.inf)
+                if not np.any(rels_ == leq_threshold):
+                    uppers[idx] = np.inf
                 else:
-                    # Otherwise, upper bound is lowest of the upper thresholds.
-                    uppers.append(np.min(thresholds[rels == leq_threshold]))
+                    # Otherwise, upper bound is lowest of the upper thresholds
+                    # of this dimension.
+                    uppers[idx] = np.min(thresholds_[rels_ == leq_threshold])
 
             rules.append(
                 dict(
-                    l=np.array(lowers),
-                    u=np.array(uppers),
+                    l=lowers,
+                    u=uppers,
                     pred=estimator.tree_.value[node],
                     exp=estimator.tree_.n_node_samples[node],
                 )
