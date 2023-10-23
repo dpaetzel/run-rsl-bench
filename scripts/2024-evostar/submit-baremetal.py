@@ -30,12 +30,15 @@ defaults = dict(n_iter=100000, timeout=10, seed_start=0, n_reps=10)
 def runit(command, fname):
     with open(fname, "w") as fstdout:
         print(f"Starting {command} …")
+        fstdout.write(f"Output of {command}:\n")
+        fstdout.flush()
         subprocess.run(
             command,
-            shell=True,
-            stderr=fstdout,
+            # shell=True,
+            stderr=subprocess.STDOUT,
             stdout=fstdout,
             text=True,
+            # 0 is unbuffered, 1 is linebuffered, …
             bufsize=0,
         )
 
@@ -120,15 +123,20 @@ def optparams(ctx, timeout, n_workers, seed, experiment_name, path):
     with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
 
         def run_npz(npzfile, seed_start, n_reps):
-            command = (
-                # Note that we keep `{job_dir}` to be inserted by `submit`.
-                f'python {dir_job}/scripts/2024-evostar/run.py "{npzfile}" optparams '
-                f"--tracking-uri={tracking_uri} "
-                f"--experiment-name={experiment_name} "
-                # "--run-name=${{SLURM_ARRAY_JOB_ID}} "
-                f"--timeout={timeout} "
-                f"{'' if seed is None else f'--seed={seed_start}'} "
-            )
+            command = [
+                f"python",
+                # Force the stdout and stderr streams to be unbuffered.
+                f"-u",
+                f"{dir_job}/scripts/2024-evostar/run.py",
+                f"{npzfile}",
+                f"optparams",
+                f"--tracking-uri={tracking_uri}",
+                f"--experiment-name={experiment_name}",
+                # "--run-name=${{SLURM_ARRAY_JOB_ID}}",
+                f"--timeout={timeout}",
+            ]
+            if seed is not None:
+                command.append(f"--seed={seed_start}")
             executor.submit(
                 runit,
                 command,
@@ -199,17 +207,22 @@ def runbest(
     with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
 
         def run_npz(npzfile, seed_start, n_reps):
-            command = (
-                # Note that we keep `{job_dir}` to be inserted by `submit`.
-                f'python {dir_job}/scripts/2024-evostar/run.py "{npzfile}" runbest '
-                f"--tracking-uri={tracking_uri} "
-                f"--tuning-uri={tuning_uri} "
-                f"--tuning-experiment-name={tuning_experiment_name} "
-                f"--experiment-name={experiment_name} "
-                # "--run-name=${{SLURM_ARRAY_JOB_ID}} "
-                f"--timeout={timeout} "
-                f"{'' if seed is None else f'--seed={seed_start}'} "
-            )
+            command = [
+                f"python",
+                # Force the stdout and stderr streams to be unbuffered.
+                f"-u",
+                f"{dir_job}/scripts/2024-evostar/run.py",
+                f"{npzfile}",
+                f"runbest",
+                f"--tracking-uri={tracking_uri}",
+                f"--tuning-uri={tuning_uri}",
+                f"--tuning-experiment-name={tuning_experiment_name}",
+                f"--experiment-name={experiment_name}",
+                # "--run-name=${{SLURM_ARRAY_JOB_ID}} ",
+                f"--timeout={timeout}",
+            ]
+            if seed_start is not None:
+                command.append(f"--seed={seed_start}")
             for _ in range(n_reps):
                 executor.submit(
                     runit,
