@@ -134,7 +134,6 @@ def optparams(ctx, timeout, n_workers, seed, experiment_name, path):
                 command,
                 f"{dir_output}/{os.path.basename(npzfile)}-{seed_start}.txt",
             )
-            # TODO Check number of parallel things in Optuna, XCSF, SupRB
 
         forall_npzs(path, run_npz, seed_start=seed, n_reps=1)
 
@@ -197,34 +196,28 @@ def runbest(
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.create_experiment(experiment_name)
 
-    print("GOTTA INPUT HERE THE SAME MULTIPROCESSING CODE AS IN optparams!")
-    exit(1)
+    with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
 
-    def submit_npz(npzfile, seed_start=seed_start, n_reps=n_reps):
-        command = (
-            # Note that we keep `{job_dir}` to be inserted by `submit`.
-            f'python {{dir_job}}/scripts/2024-evostar/run.py "{npzfile}" runbest '
-            f"--tracking-uri={tracking_uri} "
-            f"--tuning-uri={tuning_uri} "
-            f"--tuning-experiment-name={tuning_experiment_name} "
-            f"--experiment-name={experiment_name} "
-            "--run-name=${{SLURM_ARRAY_JOB_ID}}_${{SLURM_ARRAY_TASK_ID}} "
-            # f"{'' if seed_start is None else f'--seed={seed}'} "
-            f"--seed=$(({seed_start} + $SLURM_ARRAY_TASK_ID)) "
-        )
-        slurm.submit(
-            command,
-            node=node,
-            # We're hardcoding 4 CPUs for now; some sklearn estimators seem to
-            # profit from parallel processing.
-            n_cpus=4,
-            mem_per_cpu="2G",
-            dir_job=dir_job,
-            dir_results=dir_results,
-            n_reps=n_reps,
-        )
+        def run_npz(npzfile, seed_start, n_reps):
+            command = (
+                # Note that we keep `{job_dir}` to be inserted by `submit`.
+                f'python {dir_job}/scripts/2024-evostar/run.py "{npzfile}" runbest '
+                f"--tracking-uri={tracking_uri} "
+                f"--tuning-uri={tuning_uri} "
+                f"--tuning-experiment-name={tuning_experiment_name} "
+                f"--experiment-name={experiment_name} "
+                # "--run-name=${{SLURM_ARRAY_JOB_ID}} "
+                f"--timeout={timeout} "
+                f"{'' if seed is None else f'--seed={seed_start}'} "
+            )
+            for _ in range(n_reps):
+                executor.submit(
+                    runit,
+                    command,
+                    f"{dir_output}/{os.path.basename(npzfile)}-{seed_start}.txt",
+                )
 
-    forall_npzs(path, code=submit_npz, seed_start=seed_start, n_reps=n_reps)
+        forall_npzs(path, run_npz, seed_start=seed, n_reps=n_reps)
 
 
 if __name__ == "__main__":

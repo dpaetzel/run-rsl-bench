@@ -255,6 +255,9 @@ def models(DX, n_train):
     return [
         (
             "SupRB",
+            # As of 2023-10-23, SupRB only seems to parallelize rule generation
+            # (i.e. if 4 rules are to be created, SupRB tries to create these
+            # simultaneously using `n_jobs` joblib *processes* via Parallel).
             SupRB(n_jobs=N_JOBS),
             # TODO Sensible vals here
             {"n_iter": optuna.distributions.IntDistribution(16, 32)},
