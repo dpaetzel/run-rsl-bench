@@ -110,7 +110,7 @@ def params_xcsf_condition(spread_min):
     }
 
 
-def params_xcsf(DX, n_pop_size, n_train, seed):
+def params_xcsf(DX, n_pop_size, n_train, seed, testonly=False):
     return {
         "x_dim": DX,
         "y_dim": 1,
@@ -123,7 +123,7 @@ def params_xcsf(DX, n_pop_size, n_train, seed):
         "n_actions": 1,
         "action": {"type": "integer"},
         "pop_size": n_pop_size,
-        "max_trials": 200000,
+        "max_trials": 200000 if not testonly else 1000,
         "random_state": seed,
         "omp_num_threads": N_JOBS,
         # Don't load an existing population.
@@ -258,7 +258,7 @@ def params_var_suprb(DX):
     }
 
 
-def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
+def make_xcsf_triple(DX, n_pop_size, n_train, seed=0, testonly=False):
     return (
         f"XCSF{n_pop_size}",
         XCS().set_params(
@@ -267,17 +267,25 @@ def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
                 n_pop_size=n_pop_size,
                 n_train=n_train,
                 seed=seed,
+                testonly=testonly,
             )
         ),
         params_var_xcsf(DX=DX, n_pop_size=n_pop_size),
     )
 
 
-def models(DX, n_train):
+def models(DX, n_train, testonly=False):
+    """
+    Parameters
+    ----------
+    testonly : bool
+        Significantly reduce iteration counts of long-running algorithms (SupRB,
+        XCSF etc.). Meant for pipeline testing.
+    """
     return [
         (
             "SupRB",
-            SupRB(),
+            SupRB() if not testonly else SupRB(n_iter=2),
             params_var_suprb(DX),
         ),
         (
@@ -294,7 +302,7 @@ def models(DX, n_train):
             # TODO Use above DT defaults
             {"max_depth": IntDistribution(2, 5)},
         ),
-        make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train),
+        make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train, testonly=testonly),
         # make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train),
@@ -365,8 +373,9 @@ def cli(ctx, npzfile):
 @click.option("--run-name", type=str, default=None)
 @click.option("--tracking-uri", type=str, default="mlruns")
 @click.option("--experiment-name", type=str, default="optparams")
+@click.option("--test/--notest", type=bool, default=False)
 @click.pass_context
-def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
+def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name, test):
     """
     TODO
     """
@@ -452,7 +461,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
 
         return search
 
-    ms = models(DX=DX, n_train=len(X))
+    ms = models(DX=DX, n_train=len(X), testonly=test)
 
     for label, model, params in ms:
         print(f'Setting run name to "{run_name}".')
@@ -551,6 +560,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name):
 @click.option("--experiment-name", type=str, default="runbest")
 @click.option("--tuning-uri", type=str, required=True)
 @click.option("--tuning-experiment-name", type=str, default="optparams")
+@click.option("--test/--notest", type=bool, default=False)
 @click.pass_context
 def runbest(
     ctx,
@@ -560,6 +570,7 @@ def runbest(
     tuning_experiment_name,
     tracking_uri,
     experiment_name,
+    test,
 ):
     """
     Read the best hyperparameter values for the algorithms considered from the
@@ -595,7 +606,7 @@ def runbest(
     print(f'Setting experiment name to "{experiment_name}".')
     mlflow.set_experiment(experiment_name)
 
-    ms = models(DX=DX, n_train=N)
+    ms = models(DX=DX, n_train=N, testonly=test)
 
     for label, model, _ in ms:
         print()
