@@ -107,6 +107,31 @@ params_dt = {
 }
 
 
+def params_var_rf(DX, n_estimators_max, K_min, K_max):
+    max_depth_min = max(1, np.ceil(np.log2(K_min / 2 / n_estimators_max)))
+    max_depth_max = max(max_depth_min + 1, np.ceil(np.log2(K_max / 2)))
+
+    # Python is a beautiful language that does not support removing keys from
+    # dicts without editing the dict in place (or using an ugly dict
+    # comprehension).
+    params_var_dt_ = params_var_dt(DX=DX, K_min=K_min, K_max=K_max)
+    del params_var_dt_["splitter"]
+
+    return params_var_dt_ | {
+        "n_estimators": IntDistribution(2, n_estimators_max),
+        "max_depth": IntDistribution(max_depth_min, max_depth_max),
+    }
+
+
+params_rf = params_dt | {
+    "bootstrap": True,
+    "oob_score": False,
+    "n_jobs": N_JOBS,
+    "warm_start": False,
+    "max_samples": None,
+}
+
+
 def params_xcsf_condition(spread_min):
     return {
         "type": "hyperrectangle_csr",
@@ -291,14 +316,24 @@ def make_dt_triple(DX, K_min, K_max):
     return (
         f"DecisionTreeRegressor{K_min}-{K_max}",
         DecisionTreeRegressor(**params_dt),
-        # TODO Sensible vals here
-        # TODO Use above DT defaults
         params_var_dt(
             DX,
             K_min=2,
             K_max=50,
         ),
-        # params_var_dt(DX, K, K_max),
+    )
+
+
+def make_rf_triple(DX, n_estimators_max, K_min, K_max):
+    return (
+        f"RandomForestRegressor{n_estimators_max}-{K_min}-{K_max}",
+        RandomForestRegressor(**params_dt),
+        params_var_rf(
+            DX,
+            n_estimators_max,
+            K_min=K_min,
+            K_max=K_max,
+        ),
     )
 
 
@@ -316,18 +351,14 @@ def models(DX, n_train, testonly=False):
             SupRB() if not testonly else SupRB(n_iter=2),
             params_var_suprb(DX),
         ),
-        (
-            "RandomForestRegressor30",
-            RandomForestRegressor(n_estimators=30),
-            # TODO Sensible vals here
-            # TODO Use above DT defaults
-            {"max_depth": IntDistribution(2, 5)},
-        ),
         # TODO Consider to use knowledge of K to inform K_max.
         make_dt_triple(DX=DX, K_min=2, K_max=50),
         make_dt_triple(DX=DX, K_min=2, K_max=100),
         make_dt_triple(DX=DX, K_min=2, K_max=300),
+        make_rf_triple(DX=DX, n_estimators_max=10, K_min=2, K_max=50),
+        make_rf_triple(DX=DX, n_estimators_max=20, K_min=2, K_max=100),
         # TODO Consider to use knowledge of K to inform K_max.
+        # TODO Reconsider XCSF parameter ranges
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train, testonly=testonly),
         # make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
