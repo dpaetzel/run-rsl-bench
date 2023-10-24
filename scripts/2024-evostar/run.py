@@ -57,7 +57,9 @@ best_params_all_fname = "best_params_all.json"
 defaults = dict(n_iter=100000, timeout=10)
 
 
-# We try to parallelize stuff at the algorithm level fourways. I.e. XCSF and SupRB.
+# We try to parallelize stuff at the algorithm level fourways. I.e. XCSF.
+# SupRB's `n_jobs` seems not to behave well with larger amounts of training
+# data.
 N_JOBS = 4
 
 
@@ -217,6 +219,43 @@ def params_var_xcsf(DX, n_pop_size):
     }
 
 
+def params_var_suprb(DX):
+    return {
+        "rd_mutation_sigma": FloatDistribution(0, np.sqrt(DX)),
+        "rd_delay": IntDistribution(10, 100),
+        "rd_init_fitness_alpha": FloatDistribution(0.01, 0.2),
+        "sc_selection": CategoricalDistribution(
+            [
+                # Consider to add RouletteWheel multiple times to balance/mimic
+                # SupRB paper's tuning?
+                # ("RouletteWheel", {}),
+                # ("RouletteWheel", {}),
+                # ("RouletteWheel", {}),
+                ("RouletteWheel", {}),
+                ("Tournament", {"k": 3}),
+                ("Tournament", {"k": 5}),
+                ("Tournament", {"k": 7}),
+                ("Tournament", {"k": 10}),
+            ]
+        ),
+        "sc_crossover": CategoricalDistribution(
+            [
+                ("NPoint", {"n": 1}),
+                ("NPoint", {"n": 2}),
+                ("NPoint", {"n": 4}),
+                ("NPoint", {"n": 7}),
+                ("NPoint", {"n": 10}),
+                ("Uniform", {}),
+                # Consider to add Uniform multiple times to balance/mimic SupRB
+                # paper's tuning?
+                # ("Uniform", {}),
+                # ("Uniform", {}),
+                # ("Uniform", {}),
+                # ("Uniform", {}),
+            ]
+        ),
+        "sc_mutation_rate": FloatDistribution(0, 0.1),
+    }
 
 
 def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
@@ -238,12 +277,8 @@ def models(DX, n_train):
     return [
         (
             "SupRB",
-            # As of 2023-10-23, SupRB only seems to parallelize rule generation
-            # (i.e. if 4 rules are to be created, SupRB tries to create these
-            # simultaneously using `n_jobs` joblib *processes* via Parallel).
-            SupRB(n_jobs=N_JOBS),
-            # TODO Sensible vals here
-            {"n_iter": optuna.distributions.IntDistribution(16, 32)},
+            SupRB(),
+            params_var_suprb(DX),
         ),
         (
             "RandomForestRegressor30",
