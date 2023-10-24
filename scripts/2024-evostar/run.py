@@ -41,6 +41,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
 
+from pipeline import make_pipeline, regressor_name, X_MIN, X_MAX
 from rule_support.ensemble import RandomForestRegressor
 from rule_support.tree import DecisionTreeRegressor
 from rule_support.xcsf import XCS
@@ -54,10 +55,6 @@ defaults = dict(n_iter=100000, timeout=10)
 
 # We try to parallelize stuff at the algorithm level fourways. I.e. XCSF and SupRB.
 N_JOBS = 4
-
-
-# TODO Unify X_MIN vs X_min vs x_min
-X_MIN, X_MAX = -1.0, 1.0
 
 
 def _non_primitive_to_string(obj):
@@ -216,24 +213,6 @@ def params_var_xcsf(DX, n_pop_size):
     }
 
 
-regressor_name = "ttregressor"
-
-
-def make_pipeline(model, cachedir):
-    estimator = Pipeline(
-        steps=[
-            ("minmaxscaler", MinMaxScaler(feature_range=(X_MIN, X_MAX))),
-            (
-                regressor_name,
-                TransformedTargetRegressor(
-                    regressor=model, transformer=StandardScaler()
-                ),
-            ),
-        ],
-        memory=cachedir,
-    )
-
-    return estimator
 
 
 def make_xcsf_triple(DX, n_pop_size, n_train, seed=0):
