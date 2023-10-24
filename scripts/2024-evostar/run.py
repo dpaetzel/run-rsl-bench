@@ -22,7 +22,11 @@ from shutil import rmtree
 import click
 import mlflow
 import numpy as np
-import optuna.distributions
+from optuna.distributions import (
+    CategoricalDistribution,
+    FloatDistribution,
+    IntDistribution,
+)
 import store
 import toolz
 import lineartree
@@ -75,15 +79,15 @@ def randseed(random_state: np.random.RandomState):
 
 
 params_dt = {
-    "criterion": optuna.distributions.CategoricalDistribution(
+    "criterion": CategoricalDistribution(
         ["squared_error", "friedman_mse", "absolute_error"]
     ),
     # ValueError: Some value(s) of y are negative which is not allowed for Poisson regression.
     # , "poisson"]),
     # TODO Probably set max max_depth input dimension dependent?
-    "max_depth": optuna.distributions.IntDistribution(1, 20),
-    "min_samples_split": optuna.distributions.IntDistribution(2, 5),
-    "min_samples_leaf": optuna.distributions.IntDistribution(1, 5),
+    "max_depth": IntDistribution(1, 20),
+    "min_samples_split": IntDistribution(2, 5),
+    "min_samples_leaf": IntDistribution(1, 5),
     # min_impurity_decrease
 }
 
@@ -202,14 +206,14 @@ def params_var_xcsf(DX, n_pop_size):
         # could only circumvent this by either changing XCS's parameters to
         # being flat (i.e. condition not being expected to be a `dict`) or by
         # switching to Optuna's default interface.
-        "condition": optuna.distributions.CategoricalDistribution(
+        "condition": CategoricalDistribution(
             [
                 params_xcsf_condition(factor * spread_min_cubic_)
                 for factor in [0.5, 0.75, 1, 2]
             ]
         ),
-        "e0": optuna.distributions.CategoricalDistribution([0.01, 0.05, 0.1, 0.2]),
-        "beta": optuna.distributions.CategoricalDistribution([0.01, 0.05, 0.1]),
+        "e0": CategoricalDistribution([0.01, 0.05, 0.1, 0.2]),
+        "beta": CategoricalDistribution([0.01, 0.05, 0.1]),
     }
 
 
@@ -246,27 +250,27 @@ def models(DX, n_train):
             RandomForestRegressor(n_estimators=30),
             # TODO Sensible vals here
             # TODO Use above DT defaults
-            {"max_depth": optuna.distributions.IntDistribution(2, 5)},
+            {"max_depth": IntDistribution(2, 5)},
         ),
         (
             "DecisionTreeRegressor",
             DecisionTreeRegressor(),
             # TODO Sensible vals here
             # TODO Use above DT defaults
-            {"max_depth": optuna.distributions.IntDistribution(2, 5)},
+            {"max_depth": IntDistribution(2, 5)},
         ),
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train),
-        # ("Ridge", Ridge(), {"alpha": optuna.distributions.FloatDistribution(0.0, 1.0)}),
+        # ("Ridge", Ridge(), {"alpha": FloatDistribution(0.0, 1.0)}),
         # (
         #     "KNeighborsRegressor",
         #     KNeighborsRegressor(),
         #     {
-        #         "n_neighbors": optuna.distributions.IntDistribution(1, 10),
-        #         "weights": optuna.distributions.CategoricalDistribution(
+        #         "n_neighbors": IntDistribution(1, 10),
+        #         "weights": CategoricalDistribution(
         #             ["uniform", "distance"]
         #         ),
         #     },
