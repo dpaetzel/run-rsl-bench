@@ -101,9 +101,10 @@ def cli(ctx):
 )
 @click.option("--experiment-name", type=str, default="optparams")
 @click.option("--n-workers", type=int, default=10)
+@click.option("--test/--notest", type=bool, default=False)
 @click.argument("PATH")
 @click.pass_context
-def optparams(ctx, timeout, n_workers, seed, experiment_name, path):
+def optparams(ctx, timeout, n_workers, seed, experiment_name, test, path):
     """
     If PATH is an NPZ file, then run a single process for that file. If PATH is
     a directory, look at its immediate contents (i.e. non-recursively) and
@@ -137,6 +138,8 @@ def optparams(ctx, timeout, n_workers, seed, experiment_name, path):
             ]
             if seed is not None:
                 command.append(f"--seed={seed_start}")
+            if test:
+                command.append(f"--test")
             executor.submit(
                 runit,
                 command,
@@ -175,6 +178,7 @@ def optparams(ctx, timeout, n_workers, seed, experiment_name, path):
     show_default=True,
     help=("Override Slurm options (for now, see file source for defaults)"),
 )
+@click.option("--test", type=int, default=10)
 @click.argument("PATH")
 @click.pass_context
 def runbest(
@@ -186,6 +190,7 @@ def runbest(
     tuning_experiment_name,
     node,
     slurm_options,
+    test,
     path,
 ):
     """
@@ -223,6 +228,8 @@ def runbest(
             ]
             if seed_start is not None:
                 command.append(f"--seed={seed_start}")
+            if test:
+                command.append(f"--test")
             for _ in range(n_reps):
                 executor.submit(
                     runit,
