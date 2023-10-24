@@ -360,21 +360,10 @@ def models(DX, n_train, testonly=False):
         # TODO Consider to use knowledge of K to inform K_max.
         # TODO Reconsider XCSF parameter ranges
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train, testonly=testonly),
-        # make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
-        # make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
-        # make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train),
-        # make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train),
-        # ("Ridge", Ridge(), {"alpha": FloatDistribution(0.0, 1.0)}),
-        # (
-        #     "KNeighborsRegressor",
-        #     KNeighborsRegressor(),
-        #     {
-        #         "n_neighbors": IntDistribution(1, 10),
-        #         "weights": CategoricalDistribution(
-        #             ["uniform", "distance"]
-        #         ),
-        #     },
-        # ),
+        make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train, testonly=testonly),
+        make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train, testonly=testonly),
+        make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train, testonly=testonly),
+        make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train, testonly=testonly),
     ]
 
 
