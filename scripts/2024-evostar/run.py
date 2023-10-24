@@ -84,14 +84,15 @@ def params_var_dt(DX, K_min, K_max):
     # If we know the number of rules `K_min` we need at least that many rules
     # (if the rules do not overlap and there was no noise, then the optimal tree
     # actually uses exactly `min_depth` rules).
-    min_max_depth = np.ceil(np.log2(K_min / 2))
-    max_max_depth = np.ceil(np.log2(K_max / 2))
+    max_depth_min = max(1, np.ceil(np.log2(K_min / 2)))
+    max_depth_max = max(max_depth_min + 1, np.ceil(np.log2(K_max / 2)))
+
     return {
         "criterion": CategoricalDistribution(
             ["squared_error", "friedman_mse", "absolute_error"]
         ),
         "splitter": CategoricalDistribution(["best", "random"]),
-        "max_depth": IntDistribution(min_max_depth, max_max_depth),
+        "max_depth": IntDistribution(max_depth_min, max_depth_max),
         "min_samples_split": CategoricalDistribution([0.001, 0.005, 0.01, 0.05]),
         "ccp_alpha": FloatDistribution(0.0, 0.1),
     }
