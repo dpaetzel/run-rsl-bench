@@ -80,17 +80,29 @@ def randseed(random_state: np.random.RandomState):
     return random_state.randint(2**32 - 1)
 
 
+def params_var_dt(DX, K_min, K_max):
+    # If we know the number of rules `K_min` we need at least that many rules
+    # (if the rules do not overlap and there was no noise, then the optimal tree
+    # actually uses exactly `min_depth` rules).
+    min_max_depth = np.ceil(np.log2(K_min / 2))
+    max_max_depth = np.ceil(np.log2(K_max / 2))
+    return {
+        "criterion": CategoricalDistribution(
+            ["squared_error", "friedman_mse", "absolute_error"]
+        ),
+        "splitter": CategoricalDistribution(["best", "random"]),
+        "max_depth": IntDistribution(min_max_depth, max_max_depth),
+        "min_samples_split": CategoricalDistribution([0.001, 0.005, 0.01, 0.05]),
+        "ccp_alpha": FloatDistribution(0.0, 0.1),
+    }
+
+
 params_dt = {
-    "criterion": CategoricalDistribution(
-        ["squared_error", "friedman_mse", "absolute_error"]
-    ),
-    # ValueError: Some value(s) of y are negative which is not allowed for Poisson regression.
-    # , "poisson"]),
-    # TODO Probably set max max_depth input dimension dependent?
-    "max_depth": IntDistribution(1, 20),
-    "min_samples_split": IntDistribution(2, 5),
-    "min_samples_leaf": IntDistribution(1, 5),
-    # min_impurity_decrease
+    "min_samples_leaf": 1,
+    "min_weight_fraction_leaf": 0.0,
+    "max_features": None,
+    "max_leaf_nodes": None,
+    "min_impurity_decrease": 0.0,
 }
 
 
@@ -274,6 +286,21 @@ def make_xcsf_triple(DX, n_pop_size, n_train, seed=0, testonly=False):
     )
 
 
+def make_dt_triple(DX, K_min, K_max):
+    return (
+        f"DecisionTreeRegressor{K_min}-{K_max}",
+        DecisionTreeRegressor(**params_dt),
+        # TODO Sensible vals here
+        # TODO Use above DT defaults
+        params_var_dt(
+            DX,
+            K_min=2,
+            K_max=50,
+        ),
+        # params_var_dt(DX, K, K_max),
+    )
+
+
 def models(DX, n_train, testonly=False):
     """
     Parameters
@@ -295,13 +322,11 @@ def models(DX, n_train, testonly=False):
             # TODO Use above DT defaults
             {"max_depth": IntDistribution(2, 5)},
         ),
-        (
-            "DecisionTreeRegressor",
-            DecisionTreeRegressor(),
-            # TODO Sensible vals here
-            # TODO Use above DT defaults
-            {"max_depth": IntDistribution(2, 5)},
-        ),
+        # TODO Consider to use knowledge of K to inform K_max.
+        make_dt_triple(DX=DX, K_min=2, K_max=50),
+        make_dt_triple(DX=DX, K_min=2, K_max=100),
+        make_dt_triple(DX=DX, K_min=2, K_max=300),
+        # TODO Consider to use knowledge of K to inform K_max.
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train, testonly=testonly),
         # make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train),
         # make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train),
