@@ -226,7 +226,7 @@ def runbest(
                     f"{dir_output}/{os.path.basename(npzfile)}-{seed_start}.txt",
                 )
 
-        forall_npzs(path, run_npz, seed_start=seed, n_reps=n_reps)
+        forall_npzs(path, run_npz, seed_start=seed_start, n_reps=n_reps)
 
 
 if __name__ == "__main__":
