@@ -189,8 +189,6 @@ def runbest(
     directory, look at its immediate contents (i.e. non-recursively) and submit
     a job for each NPZ file found.
     """
-    if slurm_options is not None:
-        raise NotImplementedError("Has to be implemented")
 
     dir_job = ctx.obj["dir_job"]
     dir_results = ctx.obj["dir_results"]
