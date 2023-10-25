@@ -201,29 +201,27 @@ def runbest(
     with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
 
         def run_npz(npzfile, seed_start, n_reps):
-            command = [
-                f"python",
-                # Force the stdout and stderr streams to be unbuffered.
-                f"-u",
-                f"{dir_job}/scripts/2024-evostar/run.py",
-                f"{npzfile}",
-                f"runbest",
-                f"--tracking-uri={tracking_uri}",
-                f"--tuning-uri={tuning_uri}",
-                f"--tuning-experiment-name={tuning_experiment_name}",
-                f"--experiment-name={experiment_name}",
-                # "--run-name=${{SLURM_ARRAY_JOB_ID}} ",
-                f"--timeout={timeout}",
-            ]
-            if seed_start is not None:
-                command.append(f"--seed={seed_start}")
-            if test:
-                command.append(f"--test")
-            for _ in range(n_reps):
+            for seed in range(seed_start, seed_start + n_reps):
+                command = [
+                    f"python",
+                    # Force the stdout and stderr streams to be unbuffered.
+                    f"-u",
+                    f"{dir_job}/scripts/2024-evostar/run.py",
+                    f"{npzfile}",
+                    f"runbest",
+                    f"--tracking-uri={tracking_uri}",
+                    f"--tuning-uri={tuning_uri}",
+                    f"--tuning-experiment-name={tuning_experiment_name}",
+                    f"--experiment-name={experiment_name}",
+                    # "--run-name=${{SLURM_ARRAY_JOB_ID}} ",
+                    f"--seed={seed}",
+                ]
+                if test:
+                    command.append(f"--test")
                 executor.submit(
                     runit,
                     command,
-                    f"{dir_output}/{os.path.basename(npzfile)}-{seed_start}.txt",
+                    f"{dir_output}/{os.path.basename(npzfile)}-{seed}.txt",
                 )
 
         forall_npzs(path, run_npz, seed_start=seed_start, n_reps=n_reps)
