@@ -170,7 +170,7 @@ def optparams(ctx, timeout, n_workers, seed, experiment_name, test, path):
 @click.option("--tuning-uri", type=str, required=True)
 @click.option("--tuning-experiment-name", type=str, default="optparams")
 @click.option("--n-workers", type=int, default=10)
-@click.option("--test", type=int, default=10)
+@click.option("--test/--notest", type=bool, default=False)
 @click.argument("PATH")
 @click.pass_context
 def runbest(
