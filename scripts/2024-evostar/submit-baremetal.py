@@ -169,15 +169,7 @@ def optparams(ctx, timeout, n_workers, seed, experiment_name, test, path):
 @click.option("--experiment-name", type=str, default="runbest")
 @click.option("--tuning-uri", type=str, required=True)
 @click.option("--tuning-experiment-name", type=str, default="optparams")
-@click.option("--node", type=str, default="oc-compute03")
-@click.option(
-    "-o",
-    "--slurm-options",
-    type=str,
-    default=None,
-    show_default=True,
-    help=("Override Slurm options (for now, see file source for defaults)"),
-)
+@click.option("--n-workers", type=int, default=10)
 @click.option("--test", type=int, default=10)
 @click.argument("PATH")
 @click.pass_context
@@ -188,8 +180,7 @@ def runbest(
     experiment_name,
     tuning_uri,
     tuning_experiment_name,
-    node,
-    slurm_options,
+    n_workers,
     test,
     path,
 ):
