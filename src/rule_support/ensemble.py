@@ -27,11 +27,22 @@ class RandomForestRegressor(sklearn.ensemble.RandomForestRegressor):
     def rules_(self):
         check_is_fitted(self)
         rules = []
+        # Note that we deduplicate here!
         for estimator in self.estimators_:
             for rule in extract_rules(estimator):
-                # Note that we deduplicate here!
-                if rule not in rules:
+                addit = True
+                for rule_ in rules:
+                    # If there is another rule in `rules` already with the same
+                    # bounds, then do not add the rule.
+                    if np.all(rule["l"] != rule_["l"]) or np.all(
+                        rule["u"] != rule_["u"]
+                    ):
+                        addit = False
+                        # In this case we can abort the inner loop.
+                        break
+                if addit:
                     rules.append(rule)
+
         return rules
 
     def bounds_(self, X_min, X_max, transformer_X=None):
