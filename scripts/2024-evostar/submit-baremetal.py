@@ -198,6 +198,9 @@ def runbest(
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.create_experiment(experiment_name)
 
+    dir_output = f"{dir_results}/output"
+    os.makedirs(dir_output)
+
     with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
 
         def run_npz(npzfile, seed_start, n_reps):
