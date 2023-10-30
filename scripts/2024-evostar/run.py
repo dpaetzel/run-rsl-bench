@@ -20,16 +20,17 @@ import time
 from shutil import rmtree
 
 import click
+import json
 import mlflow
 import numpy as np
 from optuna.distributions import (
     CategoricalDistribution,
     FloatDistribution,
     IntDistribution,
+    distribution_to_json,
 )
 import store
 import toolz
-import lineartree
 from dataset import file_digest, get_test, get_train
 from mlflow.models.signature import infer_signature
 from mlflow.sklearn import load_model, log_model
@@ -54,7 +55,7 @@ from rule_support.suprb import SupRB
 best_params_fname = "best_params.json"
 best_params_all_fname = "best_params_all.json"
 
-defaults = dict(n_iter=100000, timeout=10)
+defaults = dict(timeout=10)
 
 
 # We try to parallelize stuff at the algorithm level fourways. I.e. XCSF.
@@ -477,6 +478,14 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name, test)
 
         param_distributions = toolz.keymap(
             lambda x: f"{regressor_name}__regressor__" + x, param_distributions
+        )
+
+        mlflow.log_dict(
+            {
+                key: json.loads(distribution_to_json(val))
+                for key, val in param_distributions.items()
+            },
+            "params_distributions.json",
         )
 
         search = OptunaSearchCV(
