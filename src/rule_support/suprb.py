@@ -22,6 +22,8 @@ import suprb.utils
 from suprb.optimizer import solution
 from suprb.optimizer import rule
 from suprb.optimizer.rule.mutation import HalfnormIncrease
+from suprb.rule.initialization import MeanInit
+from suprb.rule.fitness import VolumeWu
 from sklearn.utils.validation import check_is_fitted  # type: ignore
 from sklearn.utils import check_random_state
 
@@ -62,9 +64,7 @@ class SupRB(BaseEstimator, RegressorMixin):
             operator="&",  # early stopping
             # n_iter=12, # default seems to be 10000?
             delay=self.rd_delay,
-            init=rule.initialization.MeanInit(
-                fitness=rule.fitness.VolumeWu(alpha=self.rd_init_fitness_alpha)
-            ),
+            init=MeanInit(fitness=VolumeWu(alpha=self.rd_init_fitness_alpha)),
             mutation=HalfnormIncrease(sigma=self.rd_mutation_sigma),
         )
 
@@ -74,10 +74,10 @@ class SupRB(BaseEstimator, RegressorMixin):
             # elitist_ratio # default is 0.17
             # mutation=ga.mutation.BitFlips(), # default is BitFlips (actually
             # the only one implemented as of 2023-10-24)
-            crossover=getattr(ga.crossover, self.sc_crossover[0])(
+            crossover=getattr(solution.ga.crossover, self.sc_crossover[0])(
                 **self.sc_crossover[1]
             ),
-            selection=getattr(ga.selection, self.sc_selection[0])(
+            selection=getattr(solution.ga.selection, self.sc_selection[0])(
                 **self.sc_selection[1]
             ),
         )
@@ -95,6 +95,8 @@ class SupRB(BaseEstimator, RegressorMixin):
         )
 
         self.suprb_.fit(X, y)
+
+        return self
 
     def predict(self, X):
         return self.suprb_.predict(X)

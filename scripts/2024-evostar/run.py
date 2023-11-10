@@ -172,9 +172,9 @@ def params_xcsf(DX, n_pop_size, n_train, seed, testonly=False):
         # `perf_trials > max_trials` means don't output performance stats.
         "perf_trials": 1000000,
         "loss_func": "mae",
-        "set_subsumption": False,
+        "set_subsumption": True,
         # Only relevant if `set_subsumption`.
-        "theta_sub": 100,
+        "theta_sub": 50,
         # Target error below which accuracy is set to 0.
         "e0": 0.01,
         # Accuracy offset for rules with errors above `e0`.
@@ -215,7 +215,7 @@ def params_xcsf(DX, n_pop_size, n_train, seed, testonly=False):
             # Factor to reduce created offspring's fitness by (1=disabled).
             "fit_reduc": 0.1,
             # Whether to try and subsume offspring rules.
-            "subsumption": False,
+            "subsumption": True,
             # Whether to reset offspring predictions instead of copying.
             "pred_reset": False,
         },
@@ -254,7 +254,7 @@ def params_var_xcsf(DX, n_pop_size):
             ]
         ),
         "e0": CategoricalDistribution([0.01, 0.05, 0.1, 0.2]),
-        "beta": CategoricalDistribution([0.01, 0.05, 0.1]),
+        "beta": CategoricalDistribution([0.01, 0.05, 0.1, 0.2]),
     }
 
 
@@ -319,8 +319,8 @@ def make_dt_triple(DX, K_min, K_max):
         DecisionTreeRegressor(**params_dt),
         params_var_dt(
             DX,
-            K_min=2,
-            K_max=50,
+            K_min=K_min,
+            K_max=K_max,
         ),
     )
 
@@ -363,8 +363,7 @@ def models(DX, n_train, testonly=False):
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train, testonly=testonly),
         make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train, testonly=testonly),
         make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train, testonly=testonly),
-        make_xcsf_triple(DX=DX, n_pop_size=400, n_train=n_train, testonly=testonly),
-        make_xcsf_triple(DX=DX, n_pop_size=800, n_train=n_train, testonly=testonly),
+        make_xcsf_triple(DX=DX, n_pop_size=600, n_train=n_train, testonly=testonly),
     ]
 
 
@@ -559,6 +558,7 @@ def optparams(ctx, timeout, seed, run_name, tracking_uri, experiment_name, test)
                 best_params_ = {}
                 best_estimator_ = estimator.fit(X, y)
                 n_trials_ = 1
+
                 # As of 2023-05-31, `OptunaSearchCV.best_score_` is the mean of
                 # the cv test scores. We thus use the same for untuned models.
                 best_score_ = np.mean(scores)
