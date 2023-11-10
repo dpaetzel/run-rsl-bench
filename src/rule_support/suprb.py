@@ -19,8 +19,8 @@ import numpy as np  # type: ignore
 import suprb  # type: ignore
 from suprb import rule
 import suprb.utils
-from suprb.optimizer.solution import ga
-from suprb.optimizer.rule import es
+from suprb.optimizer import solution
+from suprb.optimizer import rule
 from suprb.optimizer.rule.mutation import HalfnormIncrease
 from sklearn.utils.validation import check_is_fitted  # type: ignore
 from sklearn.utils import check_random_state
@@ -58,7 +58,7 @@ class SupRB(BaseEstimator, RegressorMixin):
         self.sc_mutation_rate = sc_mutation_rate
 
     def fit(self, X, y):
-        rd = es.ES1xLambda(
+        rd = rule.es.ES1xLambda(
             operator="&",  # early stopping
             # n_iter=12, # default seems to be 10000?
             delay=self.rd_delay,
@@ -68,7 +68,7 @@ class SupRB(BaseEstimator, RegressorMixin):
             mutation=HalfnormIncrease(sigma=self.rd_mutation_sigma),
         )
 
-        sc = ga.GeneticAlgorithm(
+        sc = solution.ga.GeneticAlgorithm(
             # n_iter=, # default is 32
             # population_size # default is 32
             # elitist_ratio # default is 0.17
