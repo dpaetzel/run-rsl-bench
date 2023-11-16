@@ -44,6 +44,7 @@ def submit(
     n_cpus=4,
     node="oc-compute03",
     mem_per_cpu="1G",
+    timout="1-00:00:00",
     dir_job=None,
     dir_results=None,
     n_reps=1,
@@ -70,7 +71,7 @@ def submit(
             # Default Slurm settings.
             f"#SBATCH --nodelist={node}",
             f"#SBATCH --cpus-per-task={n_cpus}",
-            f"#SBATCH --time=1-00:00:00",
+            f"#SBATCH --time={timeout}",
             f"#SBATCH --mem-per-cpu={mem_per_cpu}",
             f"#SBATCH --partition=cpu-prio",
             f'#SBATCH --output="{dir_results}/output/output-%A-%a.txt"',

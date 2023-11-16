@@ -31,6 +31,7 @@ from .utils import clamp_transform
 
 
 class SupRB(BaseEstimator, RegressorMixin):
+    # TODO Set data bounds here (constraint__clip_bounds and init__bounds?)
     def __init__(
         self,
         n_iter=32,

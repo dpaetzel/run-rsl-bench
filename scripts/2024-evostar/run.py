@@ -347,23 +347,16 @@ def models(DX, n_train, testonly=False):
         XCSF etc.). Meant for pipeline testing.
     """
     return [
-        (
-            "SupRB",
-            SupRB() if not testonly else SupRB(n_iter=2),
-            params_var_suprb(DX),
-        ),
+        # TODO Consider to use knowledge of K to inform K_max.
         # TODO Consider to use knowledge of K to inform K_max.
         make_dt_triple(DX=DX, K_min=2, K_max=50),
         make_dt_triple(DX=DX, K_min=2, K_max=100),
         make_dt_triple(DX=DX, K_min=2, K_max=300),
         make_rf_triple(DX=DX, n_estimators_max=10, K_min=2, K_max=50),
         make_rf_triple(DX=DX, n_estimators_max=20, K_min=2, K_max=100),
-        # TODO Consider to use knowledge of K to inform K_max.
-        # TODO Reconsider XCSF parameter ranges
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train, testonly=testonly),
         make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train, testonly=testonly),
         make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train, testonly=testonly),
-        make_xcsf_triple(DX=DX, n_pop_size=600, n_train=n_train, testonly=testonly),
     ]
 
 
