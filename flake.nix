@@ -65,9 +65,6 @@
         format = "pyproject";
 
         propagatedBuildInputs = with python.pkgs; [
-          mlflow-import-export
-          linear-tree
-
           cmpbayes.defaultPackage."${system}"
           xcsf.defaultPackage."${system}"
           click
