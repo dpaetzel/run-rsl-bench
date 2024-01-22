@@ -351,9 +351,10 @@ def models(DX, n_train, testonly=False):
         # TODO Consider to use knowledge of K to inform K_max.
         make_dt_triple(DX=DX, K_min=2, K_max=50),
         make_dt_triple(DX=DX, K_min=2, K_max=100),
-        make_dt_triple(DX=DX, K_min=2, K_max=300),
+        make_dt_triple(DX=DX, K_min=2, K_max=200),
         make_rf_triple(DX=DX, n_estimators_max=10, K_min=2, K_max=50),
         make_rf_triple(DX=DX, n_estimators_max=20, K_min=2, K_max=100),
+        make_rf_triple(DX=DX, n_estimators_max=20, K_min=2, K_max=200),
         make_xcsf_triple(DX=DX, n_pop_size=50, n_train=n_train, testonly=testonly),
         make_xcsf_triple(DX=DX, n_pop_size=100, n_train=n_train, testonly=testonly),
         make_xcsf_triple(DX=DX, n_pop_size=200, n_train=n_train, testonly=testonly),
